@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#0b0b15">
+<meta name="description" content="Премиальный трекер привычек, самодисциплины и борьбы с зависимостями. Работает офлайн, данные хранятся в браузере.">
+<title>Ascend · Трекер привычек и дисциплины</title>
+
+<!--
+  =========================================================================
+  ASCEND — Премиальный трекер привычек, самодисциплины и зависимостей
+  =========================================================================
+  Полностью автономное приложение в одном файле (HTML + CSS + JS).
+  • Без серверной части — все данные хранятся в localStorage браузера.
+  • Готово к размещению на Tilda (блок T123), Netlify, GitHub Pages, любом хостинге.
+  • Тёмная тема, glassmorphism, градиенты, плавные анимации, адаптивность.
+
+  СТРУКТУРА ФАЙЛА:
+    1. <style>  — все стили (дизайн-система, компоненты, адаптив, анимации)
+    2. <body>   — разметка экранов (вход + основное приложение)
+    3. <script> — логика (состояние, localStorage, геймификация, рендер)
+
+  Пароль для входа: 777
+  =========================================================================
+-->
+
+<style>
+/* =========================================================================
+   1. ДИЗАЙН-СИСТЕМА: переменные, токены цвета, типографика
+   ========================================================================= */
+:root{
+  /* Базовые поверхности тёмной темы */
+  --bg-0:#07070d;            /* самый тёмный фон */
+  --bg-1:#0b0b15;            /* основной фон */
+  --bg-2:#11111f;            /* приподнятый фон */
+
+  /* Стекло (glassmorphism) */
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.08);
+  --glass-border:rgba(255,255,255,.10);
+  --glass-border-strong:rgba(255,255,255,.18);
+
+  /* Текст */
+  --text:#f4f5fb;
+  --text-soft:#b9bdd1;
+  --text-mut:#7b8099;
+
+  /* Акценты / градиенты */
+  --grad-primary:linear-gradient(135deg,#7c5cff 0%,#b14bff 45%,#ff5da2 100%);
+  --grad-success:linear-gradient(135deg,#1fd1a3 0%,#34d399 100%);
+  --grad-warn:linear-gradient(135deg,#ffb43b 0%,#ff7a59 100%);
+  --grad-danger:linear-gradient(135deg,#ff5d73 0%,#ff3d6e 100%);
+  --grad-gold:linear-gradient(135deg,#ffd66b 0%,#ffae42 60%,#ff8f3b 100%);
+  --grad-aqua:linear-gradient(135deg,#37d4ff 0%,#5c7bff 100%);
+
+  --accent:#8b6dff;
+  --accent-2:#ff5da2;
+  --success:#34d399;
+  --warn:#ffae42;
+  --danger:#ff5d73;
+
+  /* Радиусы и тени */
+  --r-sm:12px; --r-md:18px; --r-lg:26px; --r-xl:34px;
+  --shadow-1:0 10px 30px -12px rgba(0,0,0,.6);
+  --shadow-2:0 24px 60px -20px rgba(0,0,0,.7);
+  --glow:0 0 0 1px rgba(255,255,255,.06), 0 18px 50px -18px rgba(124,92,255,.55);
+
+  --speed:.45s;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+
+/* Сброс */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:var(--font);
+  color:var(--text);
+  background:var(--bg-1);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  position:relative;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit}
+::selection{background:rgba(139,109,255,.4)}
+
+/* Фоновые градиентные «капли» (живой премиальный фон) */
+.bg-orbs{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.bg-orbs span{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;animation:float 18s var(--ease) infinite}
+.bg-orbs span:nth-child(1){width:520px;height:520px;left:-140px;top:-120px;background:radial-gradient(circle,#7c5cff,transparent 60%)}
+.bg-orbs span:nth-child(2){width:480px;height:480px;right:-120px;top:10%;background:radial-gradient(circle,#ff5da2,transparent 60%);animation-delay:-4s}
+.bg-orbs span:nth-child(3){width:560px;height:560px;left:20%;bottom:-200px;background:radial-gradient(circle,#37d4ff,transparent 60%);animation-delay:-9s}
+@keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.08)}66%{transform:translate(-30px,25px) scale(.95)}}
+
+/* Кастомный скроллбар */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2);background-clip:padding-box}
+
+/* Утилиты стекла */
+.glass{
+  background:var(--glass);
+  backdrop-filter:blur(22px) saturate(140%);
+  -webkit-backdrop-filter:blur(22px) saturate(140%);
+  border:1px solid var(--glass-border);
+}
+.gradient-text{background:var(--grad-primary);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+
+/* Кнопки */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:13px 22px;border-radius:var(--r-md);font-weight:600;font-size:15px;
+  transition:transform .25s var(--ease),box-shadow .3s var(--ease),background .3s,opacity .3s;
+  position:relative;overflow:hidden;white-space:nowrap;
+}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--grad-primary);color:#fff;box-shadow:0 12px 30px -10px rgba(124,92,255,.7)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 44px -10px rgba(124,92,255,.9)}
+.btn-success{background:var(--grad-success);color:#04201a;box-shadow:0 12px 30px -10px rgba(52,211,153,.7)}
+.btn-success:hover{transform:translateY(-2px)}
+.btn-danger{background:var(--grad-danger);color:#fff;box-shadow:0 12px 30px -10px rgba(255,93,115,.6)}
+.btn-danger:hover{transform:translateY(-2px)}
+.btn-ghost{background:var(--glass);border:1px solid var(--glass-border);color:var(--text-soft)}
+.btn-ghost:hover{background:var(--glass-strong);color:var(--text);border-color:var(--glass-border-strong)}
+.btn-block{width:100%}
+.btn-sm{padding:9px 15px;font-size:13px;border-radius:12px}
+.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none!important}
+
+/* Иконка-кнопка */
+.icon-btn{width:42px;height:42px;border-radius:13px;display:inline-flex;align-items:center;justify-content:center;
+  background:var(--glass);border:1px solid var(--glass-border);color:var(--text-soft);transition:all .25s var(--ease)}
+.icon-btn:hover{background:var(--glass-strong);color:var(--text);transform:translateY(-2px)}
+
+/* =========================================================================
+   ЭКРАН ВХОДА (премиальная авторизация)
+   ========================================================================= */
+#authScreen{
+  position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:radial-gradient(120% 120% at 50% 0%,#15122b 0%,#07070d 60%);
+}
+.auth-card{
+  width:100%;max-width:430px;border-radius:var(--r-xl);padding:44px 38px;
+  background:var(--glass);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);
+  border:1px solid var(--glass-border-strong);box-shadow:var(--shadow-2);
+  position:relative;overflow:hidden;animation:authIn .8s var(--ease)
+}
+.auth-card::before{content:"";position:absolute;inset:-2px;border-radius:inherit;padding:1px;
+  background:linear-gradient(135deg,rgba(255,255,255,.35),transparent 40%,transparent 60%,rgba(255,93,162,.35));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.6}
+@keyframes authIn{from{opacity:0;transform:translateY(30px) scale(.96)}to{opacity:1;transform:none}}
+.auth-logo{width:74px;height:74px;border-radius:22px;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;
+  margin:0 auto 22px;box-shadow:0 16px 40px -12px rgba(124,92,255,.8);animation:pulseGlow 3s ease-in-out infinite}
+@keyframes pulseGlow{0%,100%{box-shadow:0 16px 40px -12px rgba(124,92,255,.8)}50%{box-shadow:0 16px 55px -8px rgba(255,93,162,.9)}}
+.auth-logo svg{width:38px;height:38px;color:#fff}
+.auth-card h1{font-size:27px;font-weight:800;text-align:center;letter-spacing:-.5px}
+.auth-card .sub{text-align:center;color:var(--text-mut);margin:8px 0 30px;font-size:14.5px}
+.field{position:relative;margin-bottom:16px}
+.field label{display:block;font-size:12.5px;color:var(--text-mut);margin-bottom:8px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.field input{
+  width:100%;padding:15px 50px 15px 16px;border-radius:var(--r-md);font-size:16px;color:var(--text);
+  background:rgba(255,255,255,.04);border:1px solid var(--glass-border);transition:all .3s var(--ease);outline:none}
+.field input:focus{border-color:rgba(139,109,255,.7);background:rgba(139,109,255,.08);box-shadow:0 0 0 4px rgba(139,109,255,.12)}
+.field .toggle-pass{position:absolute;right:8px;bottom:6px}
+.auth-error{
+  display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:var(--r-md);margin-bottom:16px;
+  background:rgba(255,93,115,.12);border:1px solid rgba(255,93,115,.4);color:#ffb3bf;font-size:14px;font-weight:500;
+  max-height:0;opacity:0;overflow:hidden;padding-top:0;padding-bottom:0;margin-bottom:0;border-width:0;
+  transition:all .4s var(--ease)}
+.auth-error.show{max-height:80px;opacity:1;padding-top:13px;padding-bottom:13px;margin-bottom:16px;border-width:1px;animation:shake .5s}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+.auth-hint{text-align:center;font-size:12.5px;color:var(--text-mut);margin-top:18px}
+.auth-hint b{color:var(--text-soft)}
+
+/* =========================================================================
+   ОСНОВНОЕ ПРИЛОЖЕНИЕ — каркас
+   ========================================================================= */
+#app{display:none;position:relative;z-index:1;min-height:100vh}
+#app.active{display:block;animation:fadeIn .6s var(--ease)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.shell{max-width:1280px;margin:0 auto;padding:0 22px;display:flex;gap:24px}
+
+/* Боковая навигация (desktop) */
+.sidebar{
+  width:248px;flex-shrink:0;position:sticky;top:18px;height:calc(100vh - 36px);
+  display:flex;flex-direction:column;padding:20px 16px;margin-top:18px;border-radius:var(--r-lg);
+  background:var(--glass);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--glass-border);box-shadow:var(--shadow-1)
+}
+.brand{display:flex;align-items:center;gap:12px;padding:6px 8px 20px;margin-bottom:8px;border-bottom:1px solid var(--glass-border)}
+.brand .mark{width:40px;height:40px;border-radius:13px;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px -8px rgba(124,92,255,.8)}
+.brand .mark svg{width:22px;height:22px;color:#fff}
+.brand .name{font-weight:800;font-size:19px;letter-spacing:-.4px}
+.brand .name span{font-size:11px;font-weight:600;color:var(--text-mut);display:block;letter-spacing:.5px;text-transform:uppercase}
+.nav{display:flex;flex-direction:column;gap:5px;margin-top:14px;flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:var(--r-sm);color:var(--text-mut);font-weight:600;font-size:14.5px;transition:all .25s var(--ease);position:relative}
+.nav-item svg{width:20px;height:20px;flex-shrink:0}
+.nav-item:hover{color:var(--text);background:var(--glass)}
+.nav-item.active{color:var(--text);background:linear-gradient(135deg,rgba(124,92,255,.22),rgba(255,93,162,.14));box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.nav-item.active::before{content:"";position:absolute;left:-16px;top:50%;transform:translateY(-50%);width:4px;height:22px;border-radius:4px;background:var(--grad-primary)}
+.sidebar-foot{padding-top:14px;border-top:1px solid var(--glass-border);margin-top:8px}
+
+/* Основной контент */
+.main{flex:1;min-width:0;padding:18px 0 90px}
+
+/* Верхняя панель */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+.topbar .greet h2{font-size:24px;font-weight:800;letter-spacing:-.5px}
+.topbar .greet p{color:var(--text-mut);font-size:14px;margin-top:2px}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.coin-pill{display:flex;align-items:center;gap:8px;padding:9px 15px;border-radius:30px;background:var(--glass);border:1px solid var(--glass-border);font-weight:700;font-size:14px}
+.coin-pill .c{width:22px;height:22px;border-radius:50%;background:var(--grad-gold);display:flex;align-items:center;justify-content:center;font-size:12px;color:#5a3b00;font-weight:900;box-shadow:0 4px 12px -2px rgba(255,174,66,.7)}
+
+/* Mobile top header (скрыт на desktop) */
+.mobile-head{display:none}
+
+/* Сетки и карточки */
+.grid{display:grid;gap:18px}
+.section{margin-bottom:30px}
+.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title h3{font-size:18px;font-weight:800;display:flex;align-items:center;gap:10px}
+.section-title h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--grad-primary)}
+
+.card{
+  background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--glass-border);border-radius:var(--r-lg);padding:22px;
+  box-shadow:var(--shadow-1);transition:transform .35s var(--ease),border-color .35s,box-shadow .35s;position:relative;overflow:hidden}
+.card:hover{border-color:var(--glass-border-strong)}
+.card.lift:hover{transform:translateY(-4px);box-shadow:var(--shadow-2)}
+
+/* Карточки статистики дашборда */
+.stats-grid{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.stat{position:relative;overflow:hidden}
+.stat .ic{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;color:#fff}
+.stat .ic svg{width:23px;height:23px}
+.stat .val{font-size:32px;font-weight:800;letter-spacing:-1px;line-height:1}
+.stat .lab{color:var(--text-mut);font-size:13px;margin-top:6px;font-weight:600}
+.stat .spark{position:absolute;right:-6px;bottom:-6px;opacity:.12;font-size:90px;font-weight:900;line-height:1}
+
+/* Карточка уровня / XP */
+.level-card{display:flex;flex-direction:column;gap:18px}
+.level-top{display:flex;align-items:center;gap:18px}
+.level-badge{width:66px;height:66px;border-radius:20px;background:var(--grad-primary);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--glow)}
+.level-badge .lv{font-size:24px;font-weight:900;line-height:1}
+.level-badge .t{font-size:9px;text-transform:uppercase;letter-spacing:1px;opacity:.85}
+.level-info{flex:1;min-width:0}
+.level-info .title{font-size:18px;font-weight:800}
+.level-info .rank{color:var(--text-mut);font-size:13.5px;margin-top:2px}
+.progress{height:13px;border-radius:30px;background:rgba(255,255,255,.07);overflow:hidden;position:relative}
+.progress .fill{height:100%;border-radius:30px;background:var(--grad-primary);width:0;transition:width 1s var(--ease);position:relative;box-shadow:0 0 18px rgba(124,92,255,.6)}
+.progress .fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2.2s infinite}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.xp-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-mut);font-weight:600}
+
+/* Большая карточка восстановления (Recovery hero) */
+.recovery-hero{display:grid;grid-template-columns:1.2fr 1fr;gap:24px}
+@media(max-width:760px){.recovery-hero{grid-template-columns:1fr}}
+.streak-ring{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:8px}
+.ring-wrap{position:relative;width:210px;height:210px}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-wrap .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-wrap .ring-center .big{font-size:56px;font-weight:900;letter-spacing:-2px;line-height:1;background:var(--grad-success);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.ring-wrap .ring-center .small{color:var(--text-mut);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:6px}
+.recovery-actions{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.recovery-mini{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.recovery-mini .m{padding:14px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);text-align:center}
+.recovery-mini .m .v{font-size:22px;font-weight:800}
+.recovery-mini .m .l{font-size:11.5px;color:var(--text-mut);margin-top:3px;font-weight:600}
+
+/* Привычки */
+.habit{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);margin-bottom:11px;transition:all .3s var(--ease)}
+.habit:hover{border-color:var(--glass-border-strong);transform:translateX(3px)}
+.habit-check{width:30px;height:30px;border-radius:10px;border:2px solid var(--glass-border-strong);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .3s var(--ease);color:transparent}
+.habit-check:hover{border-color:var(--accent)}
+.habit.done .habit-check{background:var(--grad-success);border-color:transparent;color:#04201a;animation:pop .4s var(--ease)}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(1)}}
+.habit-body{flex:1;min-width:0}
+.habit-body .hn{font-weight:700;font-size:15.5px;display:flex;align-items:center;gap:8px}
+.habit.done .habit-body .hn{color:var(--text-soft)}
+.habit-meta{display:flex;gap:14px;margin-top:4px;font-size:12.5px;color:var(--text-mut);flex-wrap:wrap}
+.habit-meta .fire{color:var(--warn);font-weight:700}
+.habit-strength{height:5px;border-radius:5px;background:rgba(255,255,255,.08);margin-top:8px;overflow:hidden}
+.habit-strength i{display:block;height:100%;border-radius:5px;background:var(--grad-primary);transition:width .8s var(--ease)}
+.habit-del{opacity:.5;transition:all .2s}
+.habit-del:hover{opacity:1;color:var(--danger)}
+.habit-emoji{font-size:22px;width:30px;text-align:center}
+
+/* Поле добавления */
+.add-row{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.add-row .emoji-pick{display:flex;gap:6px;flex-wrap:wrap}
+.add-row .emoji-pick button{width:42px;height:42px;border-radius:12px;font-size:20px;background:var(--glass);border:1px solid var(--glass-border);transition:all .2s}
+.add-row .emoji-pick button.sel{background:var(--grad-primary);border-color:transparent;transform:scale(1.08)}
+.inp{flex:1;min-width:180px;padding:13px 16px;border-radius:var(--r-md);background:rgba(255,255,255,.04);border:1px solid var(--glass-border);color:var(--text);font-size:15px;outline:none;transition:all .3s}
+.inp:focus{border-color:rgba(139,109,255,.6);box-shadow:0 0 0 4px rgba(139,109,255,.1)}
+textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
+
+/* Достижения / медали */
+.ach-grid{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+.ach{text-align:center;padding:20px 14px;border-radius:var(--r-lg);background:var(--glass);border:1px solid var(--glass-border);transition:all .35s var(--ease);position:relative;overflow:hidden}
+.ach.locked{opacity:.5;filter:grayscale(.7)}
+.ach.unlocked:hover{transform:translateY(-5px) scale(1.02);box-shadow:var(--shadow-2);border-color:var(--glass-border-strong)}
+.ach .medal{width:64px;height:64px;margin:0 auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;background:var(--glass);border:2px solid var(--glass-border)}
+.ach.unlocked .medal{background:var(--grad-gold);border-color:transparent;box-shadow:0 10px 30px -8px rgba(255,174,66,.7);animation:medalGlow 3s ease-in-out infinite}
+@keyframes medalGlow{0%,100%{box-shadow:0 10px 30px -8px rgba(255,174,66,.7)}50%{box-shadow:0 10px 40px -4px rgba(255,93,162,.8)}}
+.ach .ach-name{font-weight:800;font-size:14px}
+.ach .ach-desc{font-size:11.5px;color:var(--text-mut);margin-top:4px}
+.ach.unlocked::after{content:"✓";position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;background:var(--grad-success);color:#04201a;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center}
+
+/* Дерево прогресса */
+.tree-card{display:flex;flex-direction:column;align-items:center;text-align:center}
+.tree-stage{font-size:13px;color:var(--text-mut);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:8px}
+.tree-stage b{color:var(--text)}
+#treeCanvas{max-width:100%;height:auto}
+
+/* Карта пути */
+.path-map{position:relative;padding:10px 0}
+.path-step{display:flex;align-items:center;gap:16px;padding:12px 0;position:relative}
+.path-step .node{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;background:var(--glass);border:2px solid var(--glass-border);z-index:2;transition:all .4s}
+.path-step.done .node{background:var(--grad-success);border-color:transparent;color:#04201a}
+.path-step.current .node{background:var(--grad-primary);border-color:transparent;color:#fff;box-shadow:0 0 0 6px rgba(124,92,255,.2);animation:pulseGlow 2.5s infinite}
+.path-step:not(:last-child)::before{content:"";position:absolute;left:22px;top:46px;bottom:-12px;width:2px;background:var(--glass-border);z-index:1}
+.path-step.done:not(:last-child)::before{background:var(--success)}
+.path-step .pinfo .pt{font-weight:700;font-size:15px}
+.path-step .pinfo .pd{font-size:12.5px;color:var(--text-mut)}
+
+/* Дневник */
+.journal-entry{padding:16px 18px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);margin-bottom:12px;transition:all .3s}
+.journal-entry:hover{border-color:var(--glass-border-strong)}
+.journal-entry .je-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.journal-entry .je-date{font-size:12.5px;color:var(--text-mut);font-weight:700}
+.journal-entry .je-mood{font-size:20px}
+.journal-entry .je-text{font-size:14.5px;color:var(--text-soft);white-space:pre-wrap;word-break:break-word}
+.journal-entry .je-tag{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(255,93,115,.15);color:#ffb3bf;font-weight:700;margin-top:8px}
+.mood-pick{display:flex;gap:8px;margin:10px 0 14px;flex-wrap:wrap}
+.mood-pick button{width:46px;height:46px;border-radius:14px;font-size:24px;background:var(--glass);border:1px solid var(--glass-border);transition:all .2s}
+.mood-pick button.sel{background:var(--grad-primary);border-color:transparent;transform:scale(1.1)}
+
+/* Аналитика — графики (canvas + svg bars) */
+.chart-card{padding:22px}
+.bars{display:flex;align-items:flex-end;gap:10px;height:170px;padding-top:10px}
+.bars .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
+.bars .bar .col{width:100%;max-width:42px;border-radius:8px 8px 4px 4px;background:var(--grad-primary);transition:height 1s var(--ease);min-height:4px;position:relative}
+.bars .bar .col.danger{background:var(--grad-danger)}
+.bars .bar .col.success{background:var(--grad-success)}
+.bars .bar .lbl{font-size:11px;color:var(--text-mut);font-weight:600}
+.bars .bar .num{font-size:11px;color:var(--text-soft);font-weight:700}
+
+/* Цитата дня */
+.quote-card{background:linear-gradient(135deg,rgba(124,92,255,.18),rgba(255,93,162,.12));border:1px solid var(--glass-border-strong);position:relative;overflow:hidden}
+.quote-card .qmark{font-size:90px;position:absolute;top:-22px;left:14px;opacity:.12;font-weight:900;font-family:Georgia,serif}
+.quote-card .qtext{font-size:18px;font-weight:600;line-height:1.55;position:relative;z-index:1}
+.quote-card .qauth{margin-top:12px;color:var(--text-mut);font-weight:700;font-size:14px}
+
+/* Дневное задание / челлендж */
+.task-item{display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);margin-bottom:10px;transition:all .3s}
+.task-item.done{opacity:.6}
+.task-item .ti-check{width:26px;height:26px;border-radius:8px;border:2px solid var(--glass-border-strong);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:transparent;transition:all .3s}
+.task-item.done .ti-check{background:var(--grad-success);border-color:transparent;color:#04201a}
+.task-item .ti-body{flex:1}
+.task-item .ti-title{font-weight:700;font-size:14.5px}
+.task-item.done .ti-title{text-decoration:line-through}
+.task-item .ti-reward{font-size:12px;color:var(--warn);font-weight:700;margin-top:2px}
+
+/* Профиль / настройки */
+.profile-head{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.avatar{width:80px;height:80px;border-radius:50%;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;box-shadow:var(--glow);flex-shrink:0}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 0;border-bottom:1px solid var(--glass-border);flex-wrap:wrap}
+.setting-row:last-child{border-bottom:none}
+.setting-row .sr-info .t{font-weight:700;font-size:15px}
+.setting-row .sr-info .d{font-size:12.5px;color:var(--text-mut);margin-top:2px}
+
+/* Сундуки / награды */
+.chest-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.chest{text-align:center;padding:24px 16px;border-radius:var(--r-lg);background:var(--glass);border:1px solid var(--glass-border);transition:all .35s var(--ease)}
+.chest .cic{font-size:48px;margin-bottom:10px;transition:transform .3s;display:inline-block}
+.chest:hover .cic{transform:scale(1.12) rotate(-5deg)}
+.chest .cn{font-weight:800;font-size:15px}
+.chest .cd{font-size:12px;color:var(--text-mut);margin:4px 0 14px}
+.chest.ready{border-color:rgba(255,174,66,.5);box-shadow:0 0 30px -8px rgba(255,174,66,.4)}
+
+/* Бейджи коллекции */
+.badge-row{display:flex;gap:10px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:30px;background:var(--glass);border:1px solid var(--glass-border);font-size:13px;font-weight:700}
+.badge.on{background:linear-gradient(135deg,rgba(255,214,107,.2),rgba(255,142,59,.15));border-color:rgba(255,174,66,.4)}
+.badge .be{font-size:16px}
+
+/* =========================================================================
+   ТОСТЫ / УВЕДОМЛЕНИЯ
+   ========================================================================= */
+#toasts{position:fixed;top:20px;right:20px;z-index:80;display:flex;flex-direction:column;gap:12px;max-width:340px;pointer-events:none}
+.toast{display:flex;align-items:flex-start;gap:12px;padding:15px 18px;border-radius:var(--r-md);
+  background:rgba(20,20,34,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--glass-border-strong);box-shadow:var(--shadow-2);
+  animation:toastIn .5s var(--ease);pointer-events:auto;position:relative;overflow:hidden}
+.toast.out{animation:toastOut .4s var(--ease) forwards}
+@keyframes toastIn{from{opacity:0;transform:translateX(120%)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateX(120%)}}
+.toast .ti{font-size:22px;flex-shrink:0}
+.toast .tc .tt{font-weight:800;font-size:14.5px}
+.toast .tc .td{font-size:13px;color:var(--text-soft);margin-top:2px}
+.toast::after{content:"";position:absolute;left:0;bottom:0;height:3px;background:var(--grad-primary);animation:toastBar 4s linear forwards}
+@keyframes toastBar{from{width:100%}to{width:0}}
+
+/* =========================================================================
+   МОДАЛЬНЫЕ ОКНА (награды, поздравления, level up)
+   ========================================================================= */
+.modal-overlay{position:fixed;inset:0;z-index:90;background:rgba(5,5,12,.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .4s var(--ease)}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal{width:100%;max-width:420px;border-radius:var(--r-xl);padding:38px 32px;text-align:center;position:relative;
+  background:var(--glass);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);
+  border:1px solid var(--glass-border-strong);box-shadow:var(--shadow-2);transform:scale(.9);transition:transform .5s var(--ease)}
+.modal-overlay.show .modal{transform:scale(1)}
+.modal .reward-icon{font-size:72px;margin-bottom:14px;display:inline-block;animation:rewardPop .8s var(--ease)}
+@keyframes rewardPop{0%{transform:scale(0) rotate(-30deg)}60%{transform:scale(1.3) rotate(10deg)}100%{transform:scale(1) rotate(0)}}
+.modal h2{font-size:26px;font-weight:900;margin-bottom:8px;letter-spacing:-.5px}
+.modal p{color:var(--text-soft);font-size:15px;margin-bottom:8px}
+.modal .reward-list{display:flex;flex-direction:column;gap:10px;margin:20px 0 24px}
+.modal .reward-list .rr{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);font-weight:700}
+
+/* Конфетти */
+#confetti{position:fixed;inset:0;z-index:95;pointer-events:none}
+
+/* Welcome screen (приветствие при первом входе) */
+.welcome-steps{display:flex;flex-direction:column;gap:16px;margin:24px 0;text-align:left}
+.welcome-steps .ws{display:flex;gap:14px;align-items:flex-start}
+.welcome-steps .ws .wic{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:var(--grad-primary)}
+.welcome-steps .ws .wt{font-weight:700;font-size:15px}
+.welcome-steps .ws .wd{font-size:13px;color:var(--text-mut);margin-top:2px}
+
+/* Пустое состояние */
+.empty{text-align:center;padding:46px 20px;color:var(--text-mut)}
+.empty .ee{font-size:52px;margin-bottom:14px;opacity:.7}
+.empty .et{font-weight:700;font-size:16px;color:var(--text-soft)}
+.empty .ed{font-size:13.5px;margin-top:6px}
+
+/* Вкладки экранов */
+.view{display:none}
+.view.active{display:block;animation:viewIn .5s var(--ease)}
+@keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+.two-col{grid-template-columns:1fr 1fr}
+.three-col{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}}
+
+/* Селект периода аналитики */
+.seg{display:inline-flex;background:var(--glass);border:1px solid var(--glass-border);border-radius:14px;padding:4px;gap:4px}
+.seg button{padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;color:var(--text-mut);transition:all .25s}
+.seg button.active{background:var(--grad-primary);color:#fff}
+
+/* =========================================================================
+   АДАПТИВНОСТЬ (планшет + телефон)
+   ========================================================================= */
+@media(max-width:920px){
+  .sidebar{display:none}
+  .shell{padding:0 16px;flex-direction:column}
+  .main{padding:14px 0 100px}
+  .mobile-head{display:flex;align-items:center;justify-content:space-between;padding:16px 0 10px;position:sticky;top:0;z-index:30;background:linear-gradient(180deg,var(--bg-1) 70%,transparent)}
+  .mobile-head .brand{padding:0;margin:0;border:none}
+  .mobile-head .brand .name{font-size:17px}
+  .mobile-head .brand .mark{width:36px;height:36px}
+  /* Нижняя навигация на мобильном */
+  .mobnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;justify-content:space-around;
+    padding:9px 6px calc(9px + env(safe-area-inset-bottom));
+    background:rgba(11,11,21,.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-top:1px solid var(--glass-border)}
+  .mobnav .nav-item{flex-direction:column;gap:4px;padding:6px 4px;font-size:10.5px;border-radius:12px;flex:1;justify-content:center}
+  .mobnav .nav-item.active::before{display:none}
+  .mobnav .nav-item svg{width:22px;height:22px}
+}
+@media(min-width:921px){.mobnav{display:none}}
+
+@media(max-width:560px){
+  .topbar .greet h2{font-size:21px}
+  .stat .val{font-size:27px}
+  .ring-wrap{width:180px;height:180px}
+  .ring-wrap .ring-center .big{font-size:46px}
+  .card{padding:18px}
+  .modal{padding:30px 22px}
+  .recovery-mini{grid-template-columns:1fr 1fr}
+}
+
+/* Reduced motion — уважаем системную настройку */
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001s!important;transition-duration:.05s!important}
+}
+</style>
+</head>
+<body>
+
+<!-- Живой градиентный фон -->
+<div class="bg-orbs"><span></span><span></span><span></span></div>
+
+<!-- =======================================================================
+     ЭКРАН ВХОДА
+     ======================================================================= -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2 2 19h20L12 2z"/><path d="M12 9v5"/><circle cx="12" cy="17" r="0.4" fill="currentColor"/>
+      </svg>
+    </div>
+    <h1>Ascend</h1>
+    <p class="sub">Премиальный трекер привычек и силы воли</p>
+
+    <!-- Сообщение об ошибке -->
+    <div class="auth-error" id="authError">
+      <span>⚠️</span><span id="authErrorText">Неверный пароль. Попробуйте ещё раз.</span>
+    </div>
+
+    <form id="authForm" autocomplete="off">
+      <div class="field">
+        <label for="authPass">Пароль доступа</label>
+        <input type="password" id="authPass" placeholder="Введите пароль" inputmode="numeric" autocomplete="off">
+        <button type="button" class="icon-btn toggle-pass" id="togglePass" title="Показать/скрыть" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:6px">
+        Войти в приложение
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+    <p class="auth-hint">Демонстрационный пароль: <b>777</b></p>
+  </div>
+</div>
+
+<!-- =======================================================================
+     ОСНОВНОЕ ПРИЛОЖЕНИЕ
+     ======================================================================= -->
+<div id="app">
+  <div class="shell">
+
+    <!-- Боковая навигация (desktop) -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 19h20L12 2z"/><path d="M12 9v5"/></svg>
+        </div>
+        <div class="name">Ascend<span>discipline os</span></div>
+      </div>
+      <nav class="nav" id="navDesktop"></nav>
+      <div class="sidebar-foot">
+        <button class="btn btn-ghost btn-block" id="logoutBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+          Выйти
+        </button>
+      </div>
+    </aside>
+
+    <!-- Контент -->
+    <main class="main">
+
+      <!-- Мобильная шапка -->
+      <div class="mobile-head">
+        <div class="brand">
+          <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 19h20L12 2z"/><path d="M12 9v5"/></svg></div>
+          <div class="name">Ascend</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="coin-pill"><span class="c">¢</span><span id="coinsMobile">0</span></div>
+          <button class="icon-btn" id="logoutBtnMobile" title="Выйти">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Верхняя панель (desktop) -->
+      <div class="topbar">
+        <div class="greet">
+          <h2 id="greetTitle">С возвращением 👋</h2>
+          <p id="greetSub">Сегодня отличный день стать лучше</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="coin-pill"><span class="c">¢</span><span id="coins">0</span></div>
+          <button class="icon-btn" id="profileQuick" title="Профиль">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ====== ВКЛАДКА: ДАШБОРД ====== -->
+      <section class="view active" id="view-dashboard">
+        <!-- Карточки статистики -->
+        <div class="section">
+          <div class="grid stats-grid" id="statsGrid"></div>
+        </div>
+
+        <!-- Уровень + цитата -->
+        <div class="section grid two-col">
+          <div class="card level-card lift" id="levelCard"></div>
+          <div class="card quote-card lift">
+            <div class="qmark">“</div>
+            <div class="qtext" id="quoteText">…</div>
+            <div class="qauth" id="quoteAuth"></div>
+            <button class="btn btn-ghost btn-sm" id="newQuoteBtn" style="margin-top:16px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.8-3.4L23 10M1 14l4.7 4.4A9 9 0 0 0 20.5 15"/></svg>
+              Другая цитата
+            </button>
+          </div>
+        </div>
+
+        <!-- Восстановление (борьба с зависимостью) -->
+        <div class="section">
+          <div class="section-title"><h3><span class="dot"></span>Свобода от зависимости</h3></div>
+          <div class="card recovery-hero">
+            <div class="streak-ring">
+              <div class="ring-wrap">
+                <svg width="210" height="210" viewBox="0 0 210 210">
+                  <circle cx="105" cy="105" r="92" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="16"/>
+                  <circle id="streakRing" cx="105" cy="105" r="92" fill="none" stroke="url(#gradRing)" stroke-width="16" stroke-linecap="round" stroke-dasharray="578" stroke-dashoffset="578"/>
+                  <defs><linearGradient id="gradRing" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1fd1a3"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs>
+                </svg>
+                <div class="ring-center">
+                  <div class="big" id="cleanDays">0</div>
+                  <div class="small">дней без срыва</div>
+                </div>
+              </div>
+            </div>
+            <div class="recovery-actions">
+              <button class="btn btn-success btn-block" id="btnCleanDay">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="19" height="19"><path d="M20 6 9 17l-5-5"/></svg>
+                Сегодня без срыва
+              </button>
+              <button class="btn btn-danger btn-block" id="btnRelapse">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="19" height="19"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                Был срыв
+              </button>
+              <div class="recovery-mini">
+                <div class="m"><div class="v" id="bestStreak">0</div><div class="l">Лучшая серия</div></div>
+                <div class="m"><div class="v" id="relapseCount">0</div><div class="l">Срывов всего</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Дерево прогресса + карта пути -->
+        <div class="section grid two-col">
+          <div class="card tree-card lift">
+            <div class="section-title" style="width:100%"><h3><span class="dot"></span>Дерево прогресса</h3></div>
+            <canvas id="treeCanvas" width="280" height="240"></canvas>
+            <div class="tree-stage" id="treeStage">Этап: <b>Семя</b></div>
+          </div>
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Карта пути к цели</h3></div>
+            <div class="path-map" id="pathMap"></div>
+          </div>
+        </div>
+
+        <!-- Ежедневные задания -->
+        <div class="section grid two-col">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Задания дня</h3></div>
+            <div id="dailyTasks"></div>
+          </div>
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Челлендж дня</h3></div>
+            <div id="dailyChallenge"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== ВКЛАДКА: ПРИВЫЧКИ ====== -->
+      <section class="view" id="view-habits">
+        <div class="section">
+          <div class="section-title"><h3><span class="dot"></span>Мои привычки</h3>
+            <span class="badge"><span class="be">🔥</span><span id="habitsTodayCount">0/0 сегодня</span></span>
+          </div>
+          <div class="card">
+            <div class="add-row">
+              <input class="inp" id="habitInput" placeholder="Например: Медитация 10 минут" maxlength="60">
+              <button class="btn btn-primary" id="addHabitBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" width="18" height="18"><path d="M12 5v14M5 12h14"/></svg>
+                Добавить
+              </button>
+            </div>
+            <div class="add-row"><div class="emoji-pick" id="habitEmojiPick"></div></div>
+            <div id="habitsList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== ВКЛАДКА: ДНЕВНИК ====== -->
+      <section class="view" id="view-journal">
+        <div class="section grid two-col">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Новая запись</h3></div>
+            <div class="mood-pick" id="moodPick"></div>
+            <textarea class="inp" id="journalText" placeholder="Запишите свои мысли, эмоции или причину срыва..."></textarea>
+            <label style="display:flex;align-items:center;gap:10px;margin:14px 0;font-size:14px;color:var(--text-soft);cursor:pointer">
+              <input type="checkbox" id="journalRelapse" style="width:18px;height:18px;accent-color:var(--danger)">
+              Отметить как запись о срыве
+            </label>
+            <button class="btn btn-primary btn-block" id="saveJournalBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+              Сохранить запись
+            </button>
+          </div>
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>История записей</h3></div>
+            <input class="inp" id="journalSearch" placeholder="🔍 Поиск по записям..." style="margin-bottom:14px">
+            <div id="journalList" style="max-height:520px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== ВКЛАДКА: АНАЛИТИКА ====== -->
+      <section class="view" id="view-analytics">
+        <div class="section">
+          <div class="section-title"><h3><span class="dot"></span>Аналитика прогресса</h3>
+            <div class="seg" id="analyticsSeg">
+              <button class="active" data-range="week">Неделя</button>
+              <button data-range="month">Месяц</button>
+            </div>
+          </div>
+          <div class="grid stats-grid" id="analyticsStats"></div>
+        </div>
+        <div class="section grid two-col">
+          <div class="card chart-card lift">
+            <div class="section-title"><h3><span class="dot"></span>Успешные дни</h3></div>
+            <div class="bars" id="chartDays"></div>
+          </div>
+          <div class="card chart-card lift">
+            <div class="section-title"><h3><span class="dot"></span>Выполнение привычек</h3></div>
+            <div class="bars" id="chartHabits"></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Лучшие результаты</h3></div>
+            <div class="grid stats-grid" id="bestResults"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== ВКЛАДКА: ДОСТИЖЕНИЯ / НАГРАДЫ ====== -->
+      <section class="view" id="view-rewards">
+        <div class="section">
+          <div class="section-title"><h3><span class="dot"></span>Сундуки с наградами</h3></div>
+          <div class="grid chest-grid" id="chestGrid"></div>
+        </div>
+        <div class="section">
+          <div class="section-title"><h3><span class="dot"></span>Коллекция достижений</h3>
+            <span class="badge"><span class="be">🏆</span><span id="achCount">0/0</span></span>
+          </div>
+          <div class="grid ach-grid" id="achGrid"></div>
+        </div>
+        <div class="section">
+          <div class="section-title"><h3><span class="dot"></span>Значки</h3></div>
+          <div class="card"><div class="badge-row" id="badgeRow"></div></div>
+        </div>
+      </section>
+
+      <!-- ====== ВКЛАДКА: ПРОФИЛЬ / НАСТРОЙКИ ====== -->
+      <section class="view" id="view-profile">
+        <div class="section">
+          <div class="card lift">
+            <div class="profile-head">
+              <div class="avatar" id="profileAvatar">A</div>
+              <div style="flex:1;min-width:200px">
+                <input class="inp" id="profileName" placeholder="Ваше имя" maxlength="24" style="font-size:18px;font-weight:700">
+                <p style="color:var(--text-mut);font-size:13px;margin-top:8px" id="profileSince"></p>
+              </div>
+            </div>
+            <div style="margin-top:20px">
+              <label style="font-size:12.5px;color:var(--text-mut);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Главная цель</label>
+              <input class="inp" id="profileGoal" placeholder="Например: 90 дней дисциплины" style="margin-top:8px">
+            </div>
+            <button class="btn btn-primary" id="saveProfileBtn" style="margin-top:16px">Сохранить профиль</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Данные и резервное копирование</h3></div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Экспорт данных (JSON)</div><div class="d">Скачать полную резервную копию всех данных</div></div>
+              <button class="btn btn-ghost btn-sm" id="exportBtn">Экспорт</button>
+            </div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Импорт данных (JSON)</div><div class="d">Восстановить данные из файла резервной копии</div></div>
+              <button class="btn btn-ghost btn-sm" id="importBtn">Импорт</button>
+              <input type="file" id="importFile" accept="application/json,.json" hidden>
+            </div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Быстрая резервная копия</div><div class="d">Сохранить копию внутри браузера (localStorage)</div></div>
+              <button class="btn btn-ghost btn-sm" id="backupBtn">Создать копию</button>
+            </div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Восстановить из копии</div><div class="d" id="backupInfo">Резервная копия не найдена</div></div>
+              <button class="btn btn-ghost btn-sm" id="restoreBtn">Восстановить</button>
+            </div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t" style="color:var(--danger)">Сбросить все данные</div><div class="d">Полное удаление прогресса без возможности отмены</div></div>
+              <button class="btn btn-danger btn-sm" id="resetBtn">Сбросить</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Мобильная нижняя навигация -->
+  <nav class="mobnav" id="navMobile"></nav>
+</div>
+
+<!-- Контейнеры для тостов, модалок, конфетти -->
+<div id="toasts"></div>
+<canvas id="confetti"></canvas>
+
+<!-- Модалка наград / поздравлений -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<script>
+/* =========================================================================
+   3. ЛОГИКА ПРИЛОЖЕНИЯ
+   ========================================================================= */
+"use strict";
+
+/* ---------- Константы ---------- */
+const PASSWORD   = "777";                 // пароль входа
+const STORE_KEY  = "ascend_state_v1";     // ключ состояния
+const AUTH_KEY   = "ascend_auth_v1";      // ключ авторизации
+const BACKUP_KEY = "ascend_backup_v1";    // ключ резервной копии
+const XP_PER_DAY = 50;                     // опыт за чистый день
+const XP_PER_HABIT = 12;                   // опыт за привычку
+
+/* ---------- Утилиты ---------- */
+const $  = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+const todayKey = (d=new Date())=>d.toISOString().slice(0,10);       // YYYY-MM-DD
+const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
+const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function daysBetween(a,b){return Math.floor((new Date(b)-new Date(a))/86400000);}
+function fmtDate(iso){
+  const d=new Date(iso);
+  return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})+', '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+}
+
+/* ---------- Контент: цитаты, задания, челленджи ---------- */
+const QUOTES = [
+  {t:"Дисциплина — это мост между целями и достижениями.",a:"Джим Рон"},
+  {t:"Ты не обязан быть великим, чтобы начать, но обязан начать, чтобы стать великим.",a:"Зиг Зиглар"},
+  {t:"Каждый день, когда ты держишься, — это победа над вчерашним собой.",a:"Ascend"},
+  {t:"Мотивация запускает, но привычка удерживает.",a:"Джим Рон"},
+  {t:"Падать можно. Главное — каждый раз подниматься.",a:"Конфуций"},
+  {t:"Сила воли — это мышца. Чем чаще тренируешь, тем крепче.",a:"Ascend"},
+  {t:"Маленькие шаги каждый день ведут к большим переменам.",a:"Роберт Кольер"},
+  {t:"Свобода начинается там, где заканчивается зависимость.",a:"Ascend"},
+  {t:"Будущее зависит от того, что ты делаешь сегодня.",a:"Махатма Ганди"},
+  {t:"Ты сильнее, чем тебе кажется, и способен на большее, чем думаешь.",a:"Ascend"},
+  {t:"Не считай дни — сделай так, чтобы дни считались.",a:"Мухаммед Али"},
+  {t:"Боль временна. Гордость за себя — навсегда.",a:"Ascend"},
+];
+const DAILY_TASKS_POOL = [
+  {t:"Выпить стакан воды утром",r:8},
+  {t:"Сделать 20 приседаний",r:10},
+  {t:"5 минут глубокого дыхания",r:8},
+  {t:"Прогулка на свежем воздухе",r:12},
+  {t:"Записать 3 благодарности",r:10},
+  {t:"Лечь спать до полуночи",r:14},
+  {t:"30 минут без телефона",r:12},
+  {t:"Прочитать 10 страниц книги",r:10},
+  {t:"Убрать рабочее место",r:8},
+  {t:"Сделать растяжку",r:8},
+];
+const CHALLENGES = [
+  {t:"День холодного душа",d:"Прими прохладный душ и закали характер",r:30,e:"🚿"},
+  {t:"Цифровой детокс",d:"Проведи 2 часа без социальных сетей",r:35,e:"📵"},
+  {t:"10 000 шагов",d:"Пройди десять тысяч шагов за день",r:40,e:"👟"},
+  {t:"День тишины",d:"Удели 20 минут медитации в полной тишине",r:30,e:"🧘"},
+  {t:"Ранний подъём",d:"Встань на час раньше обычного",r:35,e:"🌅"},
+  {t:"Ноль сахара",d:"Целый день без сладкого и сахара",r:40,e:"🍎"},
+];
+
+/* ---------- Достижения (по дням без срыва) ---------- */
+const ACHIEVEMENTS = [
+  {id:1,  days:1,   name:"Первый день",   emoji:"🌱", coins:20,  xp:30,  desc:"1 день без срыва"},
+  {id:3,  days:3,   name:"Разгон",         emoji:"⚡", coins:30,  xp:50,  desc:"3 дня подряд"},
+  {id:7,  days:7,   name:"Неделя силы",    emoji:"🔥", coins:50,  xp:90,  desc:"7 дней свободы"},
+  {id:14, days:14,  name:"Две недели",     emoji:"💪", coins:80,  xp:140, desc:"14 дней дисциплины"},
+  {id:30, days:30,  name:"Месяц воли",     emoji:"🏅", coins:150, xp:260, desc:"30 дней без срыва"},
+  {id:60, days:60,  name:"Стальной дух",   emoji:"⭐", coins:260, xp:420, desc:"60 дней подряд"},
+  {id:100,days:100, name:"Сотня",          emoji:"💎", coins:420, xp:650, desc:"100 дней свободы"},
+  {id:180,days:180, name:"Полгода",        emoji:"👑", coins:700, xp:1000,desc:"180 дней мастерства"},
+  {id:365,days:365, name:"Легенда года",   emoji:"🏆", coins:1500,xp:2200,desc:"365 дней — целый год!"},
+];
+
+/* ---------- Сундуки ---------- */
+const CHESTS = [
+  {id:"daily",  name:"Ежедневный сундук",  desc:"Открывается раз в день", cost:0,   emoji:"📦", cooldown:true},
+  {id:"bronze", name:"Бронзовый сундук",    desc:"Небольшая награда",       cost:50,  emoji:"🥉"},
+  {id:"silver", name:"Серебряный сундук",   desc:"Хорошая награда",         cost:150, emoji:"🥈"},
+  {id:"gold",   name:"Золотой сундук",      desc:"Крупная награда",         cost:400, emoji:"🎁"},
+];
+
+/* ---------- Значки ---------- */
+const BADGES = [
+  {id:"earlybird", name:"Ранняя пташка", emoji:"🐦", check:s=>s.tasksCompleted>=5},
+  {id:"writer",    name:"Летописец",     emoji:"📖", check:s=>s.journal.length>=5},
+  {id:"habitual",  name:"Привычный",     emoji:"✅", check:s=>s.habits.length>=3},
+  {id:"survivor",  name:"Несгибаемый",   emoji:"🛡️", check:s=>s.bestStreak>=7},
+  {id:"rich",      name:"Богач",         emoji:"💰", check:s=>s.coins>=500},
+  {id:"champion",  name:"Чемпион",       emoji:"🏆", check:s=>s.achievements.length>=5},
+];
+
+/* ---------- Этапы дерева ---------- */
+const TREE_STAGES = [
+  {min:0,   name:"Семя"},
+  {min:3,   name:"Росток"},
+  {min:7,   name:"Саженец"},
+  {min:14,  name:"Молодое дерево"},
+  {min:30,  name:"Крепкое дерево"},
+  {min:60,  name:"Цветущее дерево"},
+  {min:100, name:"Могучий дуб"},
+  {min:180, name:"Древо мудрости"},
+  {min:365, name:"Легендарное древо"},
+];
+
+/* ---------- Эмодзи для привычек ---------- */
+const HABIT_EMOJIS = ["🏃","📚","💧","🧘","💪","🥗","😴","✍️","🎯","🚭"];
+const MOODS = ["😄","🙂","😐","😟","😢","😡","😴","🤩"];
+
+/* =========================================================================
+   СОСТОЯНИЕ
+   ========================================================================= */
+let state = null;
+
+function defaultState(){
+  return {
+    createdAt: new Date().toISOString(),
+    name: "Чемпион",
+    goal: "90 дней дисциплины",
+    // Геймификация
+    xp: 0,
+    level: 1,
+    coins: 0,
+    // Восстановление / зависимость
+    cleanStart: todayKey(),     // дата начала текущей серии
+    lastCheckIn: null,          // последняя отметка "без срыва"
+    bestStreak: 0,
+    relapseCount: 0,
+    successfulDays: 0,
+    relapseLog: [],             // [{date}]
+    cleanLog: [],               // даты отмеченных дней [YYYY-MM-DD]
+    // Привычки
+    habits: [],                 // [{id,name,emoji,createdAt,history:[dates],streak}]
+    habitLog: {},               // {YYYY-MM-DD: count}
+    // Дневник
+    journal: [],                // [{id,date,text,mood,relapse}]
+    // Достижения
+    achievements: [],           // [ids]
+    badges: [],
+    // Задания / челленджи
+    dailyDate: null,
+    dailyTasks: [],             // [{t,r,done}]
+    challenge: null,            // {..., done}
+    tasksCompleted: 0,
+    chestOpened: {},            // {chestId: dateKey}
+    quoteIndex: 0,
+  };
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ state = Object.assign(defaultState(), JSON.parse(raw)); }
+    else { state = defaultState(); }
+  }catch(e){ state = defaultState(); }
+}
+function saveState(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+/* =========================================================================
+   ВЫЧИСЛЯЕМЫЕ ПОКАЗАТЕЛИ
+   ========================================================================= */
+// Количество дней без срыва: разница между датой начала серии и сегодня
+function getCleanDays(){
+  if(!state.cleanStart) return 0;
+  const d = daysBetween(state.cleanStart, todayKey());
+  return Math.max(0, d);
+}
+// Опыт, нужный для уровня L (растущая кривая)
+function xpForLevel(L){ return Math.round(100 * Math.pow(L,1.45)); }
+function levelFromXp(xp){
+  let L=1; while(xp >= xpForLevel(L+1)) L++; return L;
+}
+function levelProgress(){
+  const L = state.level;
+  const cur = xpForLevel(L), next = xpForLevel(L+1);
+  const into = state.xp - cur, need = next - cur;
+  return {into:Math.max(0,into), need, pct: clamp(into/need*100,0,100), next};
+}
+function successRate(){
+  const total = state.successfulDays + state.relapseCount;
+  return total===0 ? 100 : Math.round(state.successfulDays/total*100);
+}
+function rankName(L){
+  const ranks=["Новичок","Ученик","Боец","Воин","Атлет духа","Мастер","Гранд-мастер","Чемпион","Легенда","Бессмертный"];
+  return ranks[clamp(Math.floor((L-1)/3),0,ranks.length-1)];
+}
+
+/* =========================================================================
+   ГЕЙМИФИКАЦИЯ: начисление XP, монет, проверка уровня и достижений
+   ========================================================================= */
+function addXp(amount, silent=false){
+  state.xp += amount;
+  const newLevel = levelFromXp(state.xp);
+  if(newLevel > state.level){
+    const gained = newLevel - state.level;
+    state.level = newLevel;
+    state.coins += gained*40;
+    if(!silent) onLevelUp(newLevel);
+  }
+}
+function addCoins(n){ state.coins += n; }
+
+function onLevelUp(level){
+  showModal({
+    icon:"🎉",
+    title:`Уровень ${level}!`,
+    desc:`Вы достигли звания «${rankName(level)}». Так держать!`,
+    rewards:[{e:"⭐",t:`Новый уровень: ${level}`},{e:"¢",t:`+40 монет`}],
+    btn:"Прекрасно!"
+  });
+  fireConfetti();
+}
+
+// Проверка достижений по текущей серии
+function checkAchievements(){
+  const days = getCleanDays();
+  ACHIEVEMENTS.forEach(a=>{
+    if(days >= a.days && !state.achievements.includes(a.id)){
+      state.achievements.push(a.id);
+      addCoins(a.coins);
+      addXp(a.xp, true);
+      // Очередь показа наград
+      queueReward({
+        icon:a.emoji,
+        title:`Достижение разблокировано!`,
+        desc:`«${a.name}» — ${a.desc}`,
+        rewards:[{e:"¢",t:`+${a.coins} монет`},{e:"⭐",t:`+${a.xp} XP`}],
+        btn:"Забрать награду"
+      });
+    }
+  });
+  checkBadges();
+}
+
+function checkBadges(){
+  BADGES.forEach(b=>{
+    if(b.check(state) && !state.badges.includes(b.id)){
+      state.badges.push(b.id);
+      toast("🎖️","Новый значок!",`«${b.name}» получен`);
+    }
+  });
+}
+
+/* Очередь наград (чтобы модалки не накладывались) */
+let rewardQueue = [];
+let modalBusy = false;
+function queueReward(cfg){ rewardQueue.push(cfg); if(!modalBusy) nextReward(); }
+function nextReward(){
+  if(rewardQueue.length===0){ modalBusy=false; return; }
+  modalBusy=true;
+  const cfg = rewardQueue.shift();
+  showModal(Object.assign({onClose:()=>{ fireConfetti(); setTimeout(nextReward,300); }},cfg));
+}
+
+/* =========================================================================
+   ДЕЙСТВИЯ: восстановление
+   ========================================================================= */
+function markCleanDay(){
+  const t = todayKey();
+  if(state.lastCheckIn === t){
+    toast("✅","Уже отмечено","Сегодняшний день уже засчитан");
+    return;
+  }
+  state.lastCheckIn = t;
+  if(!state.cleanLog.includes(t)) state.cleanLog.push(t);
+  state.successfulDays++;
+  // Лучшая серия
+  const days = getCleanDays();
+  if(days > state.bestStreak) state.bestStreak = days;
+  // Награды
+  addXp(XP_PER_DAY);
+  addCoins(10);
+  toast("🎯","День засчитан!",`+${XP_PER_DAY} XP · +10 монет`);
+  checkAchievements();
+  saveState(); renderAll();
+}
+
+function markRelapse(){
+  showModal({
+    icon:"💔",
+    title:"Был срыв?",
+    desc:"Это не конец пути, а часть процесса. Главное — продолжать. Счётчик начнётся заново, но твой опыт останется с тобой.",
+    confirm:true,
+    btn:"Да, начать заново",
+    cancel:"Отмена",
+    onConfirm:()=>{
+      const days = getCleanDays();
+      if(days > state.bestStreak) state.bestStreak = days;
+      state.relapseCount++;
+      state.relapseLog.push({date:new Date().toISOString(), streak:days});
+      state.cleanStart = todayKey();
+      state.lastCheckIn = null;
+      toast("🌅","Новое начало","Серия сброшена. Ты сильнее, чем думаешь!");
+      saveState(); renderAll();
+    }
+  });
+}
+
+/* =========================================================================
+   ДЕЙСТВИЯ: привычки
+   ========================================================================= */
+let pickedEmoji = HABIT_EMOJIS[0];
+function addHabit(){
+  const inp = $("#habitInput");
+  const name = inp.value.trim();
+  if(!name){ toast("✏️","Введите название","Поле привычки пустое"); inp.focus(); return; }
+  state.habits.push({ id:uid(), name, emoji:pickedEmoji, createdAt:todayKey(), history:[], streak:0 });
+  inp.value="";
+  toast("✅","Привычка добавлена",`«${name}» в списке`);
+  checkBadges();
+  saveState(); renderHabits(); renderDashboard();
+}
+function toggleHabit(id){
+  const h = state.habits.find(x=>x.id===id); if(!h) return;
+  const t = todayKey();
+  const idx = h.history.indexOf(t);
+  if(idx>=0){
+    h.history.splice(idx,1);
+    state.habitLog[t] = Math.max(0,(state.habitLog[t]||1)-1);
+  }else{
+    h.history.push(t);
+    state.habitLog[t] = (state.habitLog[t]||0)+1;
+    addXp(XP_PER_HABIT); addCoins(3);
+    toast("🔥","Привычка выполнена",`+${XP_PER_HABIT} XP`);
+  }
+  h.streak = calcHabitStreak(h);
+  checkBadges();
+  saveState(); renderHabits(); renderDashboard();
+}
+function deleteHabit(id){
+  const h = state.habits.find(x=>x.id===id);
+  showModal({
+    icon:"🗑️", title:"Удалить привычку?", desc:`«${h?h.name:''}» и её история будут удалены.`,
+    confirm:true, btn:"Удалить", cancel:"Отмена",
+    onConfirm:()=>{
+      state.habits = state.habits.filter(x=>x.id!==id);
+      saveState(); renderHabits(); renderDashboard();
+      toast("🗑️","Удалено","Привычка удалена");
+    }
+  });
+}
+// Текущая серия привычки (подряд идущие дни до сегодня/вчера)
+function calcHabitStreak(h){
+  if(!h.history.length) return 0;
+  const set = new Set(h.history);
+  let streak=0; let d=new Date();
+  // если сегодня не отмечено — начинаем со вчера
+  if(!set.has(todayKey())) d.setDate(d.getDate()-1);
+  while(set.has(todayKey(d))){ streak++; d.setDate(d.getDate()-1); }
+  return streak;
+}
+// Сила привычки 0..100 — по выполнениям за последние 14 дней
+function habitStrength(h){
+  let cnt=0; const d=new Date();
+  for(let i=0;i<14;i++){ if(h.history.includes(todayKey(d))) cnt++; d.setDate(d.getDate()-1); }
+  return Math.round(cnt/14*100);
+}
+
+/* =========================================================================
+   ДЕЙСТВИЯ: дневник
+   ========================================================================= */
+let pickedMood = MOODS[1];
+function saveJournal(){
+  const text = $("#journalText").value.trim();
+  if(!text){ toast("✏️","Пустая запись","Напишите что-нибудь"); return; }
+  const relapse = $("#journalRelapse").checked;
+  state.journal.unshift({ id:uid(), date:new Date().toISOString(), text, mood:pickedMood, relapse });
+  $("#journalText").value=""; $("#journalRelapse").checked=false;
+  addXp(8); addCoins(2);
+  toast("📖","Запись сохранена","+8 XP за рефлексию");
+  checkBadges();
+  saveState(); renderJournal();
+}
+
+/* =========================================================================
+   ЕЖЕДНЕВНЫЕ ЗАДАНИЯ / ЧЕЛЛЕНДЖ
+   ========================================================================= */
+function ensureDaily(){
+  const t = todayKey();
+  if(state.dailyDate !== t){
+    state.dailyDate = t;
+    // 3 случайных задания
+    const pool=[...DAILY_TASKS_POOL].sort(()=>Math.random()-.5).slice(0,3);
+    state.dailyTasks = pool.map(p=>({t:p.t,r:p.r,done:false}));
+    // случайный челлендж
+    const c = CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
+    state.challenge = {...c, done:false};
+    saveState();
+  }
+}
+function completeTask(i){
+  const task = state.dailyTasks[i]; if(!task || task.done) return;
+  task.done = true;
+  state.tasksCompleted++;
+  addXp(task.r); addCoins(task.r/2|0);
+  toast("✅","Задание выполнено",`+${task.r} XP`);
+  // Все задания выполнены?
+  if(state.dailyTasks.every(x=>x.done)){
+    addCoins(25);
+    queueReward({icon:"🌟",title:"Все задания дня!",desc:"Вы выполнили все ежедневные задания.",rewards:[{e:"¢",t:"+25 бонусных монет"}],btn:"Отлично"});
+  }
+  checkBadges();
+  saveState(); renderDashboard();
+}
+function completeChallenge(){
+  if(!state.challenge || state.challenge.done) return;
+  state.challenge.done = true;
+  addXp(state.challenge.r); addCoins(state.challenge.r);
+  queueReward({icon:state.challenge.e,title:"Челлендж пройден!",desc:state.challenge.t,rewards:[{e:"⭐",t:`+${state.challenge.r} XP`},{e:"¢",t:`+${state.challenge.r} монет`}],btn:"Я молодец"});
+  checkBadges();
+  saveState(); renderDashboard();
+}
+
+/* =========================================================================
+   СУНДУКИ
+   ========================================================================= */
+function openChest(chestId){
+  const chest = CHESTS.find(c=>c.id===chestId);
+  const t = todayKey();
+  if(chest.cooldown){
+    if(state.chestOpened[chestId]===t){ toast("⏳","Уже открыт","Возвращайтесь завтра"); return; }
+  }else{
+    if(state.coins < chest.cost){ toast("💸","Недостаточно монет",`Нужно ${chest.cost} монет`); return; }
+    state.coins -= chest.cost;
+  }
+  state.chestOpened[chestId]=t;
+  // Случайная награда
+  const base = chest.id==="gold"?300:chest.id==="silver"?120:chest.id==="bronze"?45:25;
+  const coinReward = base + Math.floor(Math.random()*base*0.6);
+  const xpReward = Math.floor(coinReward*0.8);
+  addCoins(coinReward); addXp(xpReward);
+  checkBadges();
+  queueReward({
+    icon:"🎁", title:"Сундук открыт!", desc:`${chest.name} принёс награду:`,
+    rewards:[{e:"¢",t:`+${coinReward} монет`},{e:"⭐",t:`+${xpReward} XP`}], btn:"Забрать"
+  });
+  saveState(); renderRewards(); renderTopbar();
+}
+
+/* =========================================================================
+   РЕНДЕР
+   ========================================================================= */
+function renderAll(){
+  ensureDaily();
+  renderTopbar();
+  renderDashboard();
+  renderHabits();
+  renderJournal();
+  renderAnalytics();
+  renderRewards();
+  renderProfile();
+}
+
+/* --- Верхняя панель / приветствие --- */
+function renderTopbar(){
+  $("#coins").textContent = Math.floor(state.coins);
+  $("#coinsMobile").textContent = Math.floor(state.coins);
+  const hour = new Date().getHours();
+  const greet = hour<6?"Доброй ночи":hour<12?"Доброе утро":hour<18?"Добрый день":"Добрый вечер";
+  $("#greetTitle").innerHTML = `${greet}, ${escapeHtml(state.name)} 👋`;
+  const days=getCleanDays();
+  $("#greetSub").textContent = days>0 ? `Вы держитесь уже ${days} ${plural(days,'день','дня','дней')} — это сильно!` : "Сегодня отличный день стать лучше";
+}
+
+/* --- Дашборд --- */
+function renderDashboard(){
+  const days = getCleanDays();
+  const lp = levelProgress();
+
+  // Карточки статистики
+  const stats = [
+    {ic:"🔥", grad:"var(--grad-warn)",   val:days,                 lab:"Дней без срыва",  spark:"🔥"},
+    {ic:"⚡", grad:"var(--grad-aqua)",   val:days,                 lab:"Текущая серия",   spark:"⚡"},
+    {ic:"⭐", grad:"var(--grad-primary)",val:state.level,          lab:"Уровень",         spark:"★"},
+    {ic:"💎", grad:"var(--grad-success)",val:Math.floor(state.xp), lab:"Всего опыта (XP)",spark:"✦"},
+    {ic:"📈", grad:"var(--grad-gold)",   val:successRate()+"%",    lab:"Успешность",      spark:"%"},
+    {ic:"🏆", grad:"var(--grad-danger)", val:state.achievements.length,lab:"Достижений",  spark:"♛"},
+  ];
+  $("#statsGrid").innerHTML = stats.map(s=>`
+    <div class="card stat lift">
+      <div class="ic" style="background:${s.grad}">${s.ic}</div>
+      <div class="val">${s.val}</div>
+      <div class="lab">${s.lab}</div>
+      <div class="spark">${s.spark}</div>
+    </div>`).join("");
+
+  // Карточка уровня
+  $("#levelCard").innerHTML = `
+    <div class="level-top">
+      <div class="level-badge"><div class="lv">${state.level}</div><div class="t">level</div></div>
+      <div class="level-info">
+        <div class="title">${rankName(state.level)}</div>
+        <div class="rank">До уровня ${state.level+1} осталось ${Math.max(0,lp.need-lp.into)} XP</div>
+      </div>
+    </div>
+    <div>
+      <div class="progress"><div class="fill" style="width:${lp.pct}%"></div></div>
+      <div class="xp-row" style="margin-top:8px"><span>${lp.into} XP</span><span>${lp.need} XP</span></div>
+    </div>`;
+
+  // Восстановление
+  $("#cleanDays").textContent = days;
+  $("#bestStreak").textContent = state.bestStreak;
+  $("#relapseCount").textContent = state.relapseCount;
+  // Кольцо: прогресс до следующего достижения
+  const nextAch = ACHIEVEMENTS.find(a=>a.days>days) || ACHIEVEMENTS[ACHIEVEMENTS.length-1];
+  const prevDays = (()=>{ let p=0; ACHIEVEMENTS.forEach(a=>{if(a.days<=days)p=a.days}); return p; })();
+  const ringPct = clamp((days-prevDays)/(nextAch.days-prevDays),0,1);
+  const C=578;
+  $("#streakRing").style.strokeDashoffset = C - C*ringPct;
+
+  // Цитата
+  renderQuote();
+  // Дерево
+  renderTree();
+  // Карта пути
+  renderPathMap();
+  // Задания
+  renderDailyTasks();
+
+  // Кол-во привычек сегодня
+  const t = todayKey();
+  const doneToday = state.habits.filter(h=>h.history.includes(t)).length;
+  $("#habitsTodayCount").textContent = `${doneToday}/${state.habits.length} сегодня`;
+}
+
+function renderQuote(){
+  const q = QUOTES[state.quoteIndex % QUOTES.length];
+  $("#quoteText").textContent = q.t;
+  $("#quoteAuth").textContent = "— "+q.a;
+}
+
+/* --- Дерево прогресса (canvas) --- */
+function renderTree(){
+  const days = getCleanDays();
+  const stage = [...TREE_STAGES].reverse().find(s=>days>=s.min) || TREE_STAGES[0];
+  $("#treeStage").innerHTML = `Этап: <b>${stage.name}</b>`;
+  const cv = $("#treeCanvas"); const ctx = cv.getContext("2d");
+  const W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  // прогресс роста 0..1
+  const growth = clamp(days/120,0.05,1);
+  // земля
+  const gnd = ctx.createLinearGradient(0,H-30,0,H);
+  gnd.addColorStop(0,"rgba(124,92,255,.25)"); gnd.addColorStop(1,"rgba(124,92,255,0)");
+  ctx.fillStyle=gnd; ctx.beginPath(); ctx.ellipse(W/2,H-18,90,16,0,0,Math.PI*2); ctx.fill();
+  // ствол
+  const baseY=H-22, topY = baseY - (40+growth*120);
+  ctx.strokeStyle="#7a5a3a"; ctx.lineWidth=4+growth*8; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(W/2,baseY); ctx.quadraticCurveTo(W/2-6,(baseY+topY)/2,W/2,topY); ctx.stroke();
+  // ветви + листва (рекурсивно)
+  function branch(x,y,len,ang,depth){
+    if(depth===0||len<8) return;
+    const x2=x+Math.cos(ang)*len, y2=y+Math.sin(ang)*len;
+    ctx.strokeStyle="#7a5a3a"; ctx.lineWidth=depth*1.4;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x2,y2); ctx.stroke();
+    if(depth<=2 && growth>0.2){
+      const g=ctx.createRadialGradient(x2,y2,0,x2,y2,12);
+      g.addColorStop(0,"#5ce0a0"); g.addColorStop(1,"rgba(52,211,153,.2)");
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x2,y2,8+growth*6,0,Math.PI*2); ctx.fill();
+    }
+    branch(x2,y2,len*0.72,ang-0.5,depth-1);
+    branch(x2,y2,len*0.72,ang+0.5,depth-1);
+  }
+  const depth = clamp(Math.floor(growth*6)+1,1,6);
+  branch(W/2,topY,30+growth*26,-Math.PI/2,depth);
+  // если совсем семя
+  if(days<3){
+    ctx.font="34px serif"; ctx.textAlign="center"; ctx.fillText("🌱",W/2,baseY-6);
+  }
+}
+
+/* --- Карта пути к цели --- */
+function renderPathMap(){
+  const days = getCleanDays();
+  const milestones=[1,7,30,100,365];
+  $("#pathMap").innerHTML = milestones.map((m,i)=>{
+    const done = days>=m;
+    const current = !done && (i===0 || days>=milestones[i-1]);
+    return `<div class="path-step ${done?'done':''} ${current?'current':''}">
+      <div class="node">${done?'✓':m}</div>
+      <div class="pinfo"><div class="pt">${m} ${plural(m,'день','дня','дней')}</div>
+      <div class="pd">${done?'Пройдено':current?`Текущий этап · ещё ${m-days} ${plural(m-days,'день','дня','дней')}`:'Заблокировано'}</div></div>
+    </div>`;
+  }).join("");
+}
+
+/* --- Ежедневные задания + челлендж --- */
+function renderDailyTasks(){
+  $("#dailyTasks").innerHTML = state.dailyTasks.map((t,i)=>`
+    <div class="task-item ${t.done?'done':''}" data-task="${i}">
+      <div class="ti-check">${t.done?'✓':''}</div>
+      <div class="ti-body"><div class="ti-title">${escapeHtml(t.t)}</div><div class="ti-reward">+${t.r} XP</div></div>
+    </div>`).join("") || `<div class="empty"><div class="ee">📋</div><div class="et">Заданий нет</div></div>`;
+
+  const c = state.challenge;
+  $("#dailyChallenge").innerHTML = c ? `
+    <div style="text-align:center;padding:10px 0">
+      <div style="font-size:54px;margin-bottom:10px">${c.e}</div>
+      <div style="font-weight:800;font-size:18px">${escapeHtml(c.t)}</div>
+      <div style="color:var(--text-mut);font-size:14px;margin:8px 0 16px">${escapeHtml(c.d)}</div>
+      <div class="badge" style="margin-bottom:16px"><span class="be">⭐</span>Награда: +${c.r} XP · +${c.r} монет</div>
+      <button class="btn ${c.done?'btn-ghost':'btn-primary'} btn-block" id="challengeBtn" ${c.done?'disabled':''}>
+        ${c.done?'✓ Челлендж выполнен':'Выполнить челлендж'}
+      </button>
+    </div>` : "";
+}
+
+/* --- Привычки --- */
+function renderHabits(){
+  // эмодзи-пикер
+  $("#habitEmojiPick").innerHTML = HABIT_EMOJIS.map(e=>
+    `<button class="${e===pickedEmoji?'sel':''}" data-emoji="${e}">${e}</button>`).join("");
+  // список
+  const t = todayKey();
+  if(state.habits.length===0){
+    $("#habitsList").innerHTML = `<div class="empty"><div class="ee">🌱</div><div class="et">Пока нет привычек</div><div class="ed">Добавьте первую привычку выше, чтобы начать</div></div>`;
+    return;
+  }
+  $("#habitsList").innerHTML = state.habits.map(h=>{
+    const done = h.history.includes(t);
+    const strength = habitStrength(h);
+    const total = h.history.length;
+    return `<div class="habit ${done?'done':''}" data-habit="${h.id}">
+      <button class="habit-check" data-toggle="${h.id}">${done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="16" height="16"><path d="M20 6 9 17l-5-5"/></svg>':''}</button>
+      <span class="habit-emoji">${h.emoji}</span>
+      <div class="habit-body">
+        <div class="hn">${escapeHtml(h.name)}</div>
+        <div class="habit-meta">
+          <span class="fire">🔥 ${h.streak} ${plural(h.streak,'день','дня','дней')} подряд</span>
+          <span>✅ ${total} выполнений</span>
+          <span>💪 сила ${strength}%</span>
+        </div>
+        <div class="habit-strength"><i style="width:${strength}%"></i></div>
+      </div>
+      <button class="icon-btn habit-del" data-del="${h.id}" title="Удалить">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+      </button>
+    </div>`;
+  }).join("");
+}
+
+/* --- Дневник --- */
+function renderJournal(){
+  // mood picker
+  $("#moodPick").innerHTML = MOODS.map(m=>`<button class="${m===pickedMood?'sel':''}" data-mood="${m}">${m}</button>`).join("");
+  renderJournalList();
+}
+function renderJournalList(){
+  const q = ($("#journalSearch").value||"").toLowerCase().trim();
+  let list = state.journal;
+  if(q) list = list.filter(e=>e.text.toLowerCase().includes(q));
+  if(list.length===0){
+    $("#journalList").innerHTML = `<div class="empty"><div class="ee">📔</div><div class="et">${q?'Ничего не найдено':'Записей пока нет'}</div><div class="ed">${q?'Попробуйте другой запрос':'Начните вести дневник сегодня'}</div></div>`;
+    return;
+  }
+  $("#journalList").innerHTML = list.map(e=>`
+    <div class="journal-entry">
+      <div class="je-head">
+        <span class="je-date">${fmtDate(e.date)}</span>
+        <span class="je-mood">${e.mood}</span>
+      </div>
+      <div class="je-text">${escapeHtml(e.text)}</div>
+      ${e.relapse?'<span class="je-tag">💔 Запись о срыве</span>':''}
+    </div>`).join("");
+}
+
+/* --- Аналитика --- */
+let analyticsRange = "week";
+function renderAnalytics(){
+  // статистика
+  const stats=[
+    {ic:"✅",grad:"var(--grad-success)",val:state.successfulDays,lab:"Успешных дней",spark:"✓"},
+    {ic:"💔",grad:"var(--grad-danger)", val:state.relapseCount,  lab:"Срывов",       spark:"✗"},
+    {ic:"📊",grad:"var(--grad-gold)",   val:successRate()+"%",   lab:"Успешность",   spark:"%"},
+    {ic:"🏆",grad:"var(--grad-primary)",val:state.bestStreak,    lab:"Лучшая серия", spark:"♛"},
+  ];
+  $("#analyticsStats").innerHTML = stats.map(s=>`
+    <div class="card stat lift"><div class="ic" style="background:${s.grad}">${s.ic}</div>
+    <div class="val">${s.val}</div><div class="lab">${s.lab}</div><div class="spark">${s.spark}</div></div>`).join("");
+
+  const n = analyticsRange==="week"?7:30;
+  // график успешных дней (1 если был чистый день / 0)
+  const days=[]; const d=new Date();
+  for(let i=n-1;i>=0;i--){ const dd=new Date(); dd.setDate(d.getDate()-i); days.push(dd); }
+  const dayBars = days.map(dd=>{
+    const k=todayKey(dd);
+    const clean = state.cleanLog.includes(k);
+    const relapsed = state.relapseLog.some(r=>r.date.slice(0,10)===k);
+    return {label:dd.toLocaleDateString('ru-RU',{day:'numeric',month: n>7?undefined:'short'}), val:relapsed?-1:(clean?1:0)};
+  });
+  $("#chartDays").innerHTML = dayBars.map(b=>{
+    const h = b.val===1?100:b.val===-1?40:8;
+    const cls = b.val===1?'success':b.val===-1?'danger':'';
+    return `<div class="bar"><div class="num">${b.val===1?'✓':b.val===-1?'✗':''}</div>
+      <div class="col ${cls}" style="height:${h}%"></div><div class="lbl">${b.label}</div></div>`;
+  }).join("");
+
+  // график привычек (кол-во выполненных привычек в день)
+  const maxH = Math.max(1, state.habits.length, ...days.map(dd=>state.habitLog[todayKey(dd)]||0));
+  $("#chartHabits").innerHTML = days.map(dd=>{
+    const k=todayKey(dd); const v=state.habitLog[k]||0;
+    return `<div class="bar"><div class="num">${v||''}</div>
+      <div class="col" style="height:${Math.max(8,v/maxH*100)}%"></div>
+      <div class="lbl">${dd.toLocaleDateString('ru-RU',{day:'numeric',month:n>7?undefined:'short'})}</div></div>`;
+  }).join("");
+
+  // лучшие результаты
+  const totalHabitDone = Object.values(state.habitLog).reduce((a,b)=>a+b,0);
+  const best=[
+    {ic:"🔥",grad:"var(--grad-warn)",val:state.bestStreak,lab:"Рекорд серии",spark:"🔥"},
+    {ic:"📅",grad:"var(--grad-aqua)",val:getCleanDays(),lab:"Текущий стрик",spark:"⚡"},
+    {ic:"✅",grad:"var(--grad-success)",val:totalHabitDone,lab:"Привычек выполнено",spark:"✓"},
+    {ic:"📖",grad:"var(--grad-primary)",val:state.journal.length,lab:"Записей в дневнике",spark:"✎"},
+  ];
+  $("#bestResults").innerHTML = best.map(s=>`
+    <div class="card stat lift"><div class="ic" style="background:${s.grad}">${s.ic}</div>
+    <div class="val">${s.val}</div><div class="lab">${s.lab}</div><div class="spark">${s.spark}</div></div>`).join("");
+}
+
+/* --- Награды / достижения / сундуки --- */
+function renderRewards(){
+  // сундуки
+  const t = todayKey();
+  $("#chestGrid").innerHTML = CHESTS.map(c=>{
+    let status,ready=false;
+    if(c.cooldown){ ready = state.chestOpened[c.id]!==t; status = ready?'Готов к открытию':'Открыт сегодня'; }
+    else { ready = state.coins>=c.cost; status = `${c.cost} монет`; }
+    return `<div class="chest ${ready?'ready':''}">
+      <div class="cic">${c.emoji}</div>
+      <div class="cn">${c.name}</div>
+      <div class="cd">${c.desc}</div>
+      <button class="btn ${ready?'btn-primary':'btn-ghost'} btn-sm btn-block" data-chest="${c.id}" ${ready?'':'disabled'}>${status}</button>
+    </div>`;
+  }).join("");
+
+  // достижения
+  const days = getCleanDays();
+  $("#achCount").textContent = `${state.achievements.length}/${ACHIEVEMENTS.length}`;
+  $("#achGrid").innerHTML = ACHIEVEMENTS.map(a=>{
+    const unlocked = state.achievements.includes(a.id);
+    return `<div class="ach ${unlocked?'unlocked':'locked'}">
+      <div class="medal">${a.emoji}</div>
+      <div class="ach-name">${a.name}</div>
+      <div class="ach-desc">${a.desc}</div>
+    </div>`;
+  }).join("");
+
+  // значки
+  $("#badgeRow").innerHTML = BADGES.map(b=>{
+    const on = state.badges.includes(b.id);
+    return `<span class="badge ${on?'on':''}"><span class="be">${b.emoji}</span>${b.name}${on?' ✓':''}</span>`;
+  }).join("");
+}
+
+/* --- Профиль --- */
+function renderProfile(){
+  $("#profileName").value = state.name;
+  $("#profileGoal").value = state.goal;
+  $("#profileAvatar").textContent = (state.name[0]||"A").toUpperCase();
+  $("#profileSince").textContent = `В пути с ${new Date(state.createdAt).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}`;
+  const backup = localStorage.getItem(BACKUP_KEY);
+  $("#backupInfo").textContent = backup ? `Копия от ${new Date(JSON.parse(backup)._backupAt||Date.now()).toLocaleString('ru-RU')}` : "Резервная копия не найдена";
+}
+
+/* =========================================================================
+   ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+   ========================================================================= */
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function plural(n,one,few,many){
+  n=Math.abs(n)%100; const n1=n%10;
+  if(n>10&&n<20) return many;
+  if(n1>1&&n1<5) return few;
+  if(n1===1) return one;
+  return many;
+}
+
+/* =========================================================================
+   ТОСТЫ
+   ========================================================================= */
+function toast(icon,title,desc){
+  const el=document.createElement("div");
+  el.className="toast";
+  el.innerHTML=`<div class="ti">${icon}</div><div class="tc"><div class="tt">${escapeHtml(title)}</div>${desc?`<div class="td">${escapeHtml(desc)}</div>`:''}</div>`;
+  $("#toasts").appendChild(el);
+  setTimeout(()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),400); },4000);
+}
+
+/* =========================================================================
+   МОДАЛЬНОЕ ОКНО
+   ========================================================================= */
+function showModal(cfg){
+  const box=$("#modalBox");
+  box.innerHTML=`
+    <div class="reward-icon">${cfg.icon||"✨"}</div>
+    <h2>${escapeHtml(cfg.title||"")}</h2>
+    <p>${escapeHtml(cfg.desc||"")}</p>
+    ${cfg.rewards?`<div class="reward-list">${cfg.rewards.map(r=>`<div class="rr"><span style="font-size:20px">${r.e}</span>${escapeHtml(r.t)}</div>`).join("")}</div>`:""}
+    <div style="display:flex;gap:10px;${cfg.confirm?'':'justify-content:center'}">
+      ${cfg.confirm?`<button class="btn btn-ghost btn-block" id="modalCancel">${escapeHtml(cfg.cancel||"Отмена")}</button>`:""}
+      <button class="btn btn-primary btn-block" id="modalOk">${escapeHtml(cfg.btn||"OK")}</button>
+    </div>`;
+  $("#modalOverlay").classList.add("show");
+  const close=()=>{ $("#modalOverlay").classList.remove("show"); };
+  $("#modalOk").onclick=()=>{ close(); if(cfg.onConfirm)cfg.onConfirm(); if(cfg.onClose)cfg.onClose(); };
+  if(cfg.confirm) $("#modalCancel").onclick=()=>{ close(); if(cfg.onCancel)cfg.onCancel(); };
+}
+
+/* =========================================================================
+   КОНФЕТТИ (canvas)
+   ========================================================================= */
+const confettiCanvas=$("#confetti"); const cctx=confettiCanvas.getContext("2d");
+let confettiParts=[]; let confettiRAF=null;
+function sizeConfetti(){ confettiCanvas.width=innerWidth; confettiCanvas.height=innerHeight; }
+addEventListener("resize",sizeConfetti); sizeConfetti();
+function fireConfetti(){
+  const colors=["#7c5cff","#ff5da2","#34d399","#ffae42","#37d4ff","#ffd66b"];
+  for(let i=0;i<120;i++){
+    confettiParts.push({
+      x:innerWidth/2,y:innerHeight/2,
+      vx:(Math.random()-.5)*12, vy:(Math.random()-.5)*12-4,
+      g:.18+Math.random()*.1, size:5+Math.random()*7,
+      color:colors[Math.floor(Math.random()*colors.length)],
+      rot:Math.random()*6, vr:(Math.random()-.5)*.3, life:90+Math.random()*40
+    });
+  }
+  if(!confettiRAF) loopConfetti();
+}
+function loopConfetti(){
+  cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+  confettiParts.forEach(p=>{
+    p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; p.life--;
+    cctx.save(); cctx.translate(p.x,p.y); cctx.rotate(p.rot);
+    cctx.fillStyle=p.color; cctx.globalAlpha=clamp(p.life/40,0,1);
+    cctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*.6); cctx.restore();
+  });
+  confettiParts=confettiParts.filter(p=>p.life>0 && p.y<confettiCanvas.height+40);
+  if(confettiParts.length>0){ confettiRAF=requestAnimationFrame(loopConfetti); }
+  else { cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); confettiRAF=null; }
+}
+
+/* =========================================================================
+   НАВИГАЦИЯ
+   ========================================================================= */
+const NAV=[
+  {id:"dashboard",label:"Главная", icon:'<path d="M3 12l9-9 9 9M5 10v10h14V10"/>'},
+  {id:"habits",   label:"Привычки",icon:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'},
+  {id:"journal",  label:"Дневник", icon:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'},
+  {id:"analytics",label:"Аналитика",icon:'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>'},
+  {id:"rewards",  label:"Награды", icon:'<path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4L8 14 2 9.4h7.6z"/>'},
+  {id:"profile",  label:"Профиль", icon:'<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>'},
+];
+function buildNav(){
+  const mk=(item)=>`<a class="nav-item ${item.id==='dashboard'?'active':''}" data-view="${item.id}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${item.icon}</svg>
+    <span>${item.label}</span></a>`;
+  $("#navDesktop").innerHTML = NAV.map(mk).join("");
+  $("#navMobile").innerHTML = NAV.map(mk).join("");
+}
+function switchView(id){
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id===`view-${id}`));
+  $$(".nav-item").forEach(n=>n.classList.toggle("active",n.dataset.view===id));
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* =========================================================================
+   ЭКСПОРТ / ИМПОРТ / РЕЗЕРВ
+   ========================================================================= */
+function exportData(){
+  const data = JSON.stringify(state,null,2);
+  const blob = new Blob([data],{type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download=`ascend-backup-${todayKey()}.json`; a.click();
+  URL.revokeObjectURL(url);
+  toast("📤","Экспорт готов","Файл резервной копии скачан");
+}
+function importData(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const imported=JSON.parse(e.target.result);
+      if(typeof imported!=="object"||!imported) throw new Error();
+      state=Object.assign(defaultState(),imported);
+      saveState(); renderAll();
+      toast("📥","Импорт завершён","Данные успешно восстановлены");
+    }catch(err){ toast("⚠️","Ошибка импорта","Файл повреждён или неверный формат"); }
+  };
+  reader.readAsText(file);
+}
+function backupData(){
+  const data={...state,_backupAt:Date.now()};
+  localStorage.setItem(BACKUP_KEY,JSON.stringify(data));
+  renderProfile();
+  toast("💾","Копия создана","Резервная копия сохранена в браузере");
+}
+function restoreData(){
+  const raw=localStorage.getItem(BACKUP_KEY);
+  if(!raw){ toast("⚠️","Нет копии","Сначала создайте резервную копию"); return; }
+  showModal({icon:"♻️",title:"Восстановить данные?",desc:"Текущий прогресс будет заменён данными из резервной копии.",confirm:true,btn:"Восстановить",cancel:"Отмена",onConfirm:()=>{
+    state=Object.assign(defaultState(),JSON.parse(raw)); delete state._backupAt;
+    saveState(); renderAll(); toast("♻️","Восстановлено","Данные из копии загружены");
+  }});
+}
+function resetData(){
+  showModal({icon:"⚠️",title:"Сбросить всё?",desc:"Все данные, достижения и прогресс будут удалены безвозвратно.",confirm:true,btn:"Удалить всё",cancel:"Отмена",onConfirm:()=>{
+    state=defaultState(); saveState(); renderAll(); switchView("dashboard");
+    toast("🔄","Сброшено","Приложение начато заново");
+  }});
+}
+
+/* =========================================================================
+   АВТОРИЗАЦИЯ
+   ========================================================================= */
+function isAuthed(){ return localStorage.getItem(AUTH_KEY)==="ok"; }
+function showError(msg){
+  const e=$("#authError"); $("#authErrorText").textContent=msg;
+  e.classList.remove("show"); void e.offsetWidth; e.classList.add("show");
+}
+function doLogin(pass){
+  if(pass===PASSWORD){
+    localStorage.setItem(AUTH_KEY,"ok");
+    $("#authError").classList.remove("show");
+    enterApp(true);
+  }else{
+    showError(pass.trim()===""?"Введите пароль для входа":"Неверный пароль. Попробуйте ещё раз.");
+    $("#authPass").value=""; $("#authPass").focus();
+  }
+}
+function logout(){
+  localStorage.removeItem(AUTH_KEY);
+  $("#app").classList.remove("active");
+  $("#authScreen").style.display="flex";
+  $("#authPass").value="";
+  window.scrollTo(0,0);
+}
+function enterApp(firstLogin){
+  $("#authScreen").style.display="none";
+  $("#app").classList.add("active");
+  loadState();
+  renderAll();
+  // приветственный экран при самом первом запуске
+  if(firstLogin && state.journal.length===0 && state.habits.length===0 && getCleanDays()===0 && !localStorage.getItem("ascend_welcomed")){
+    localStorage.setItem("ascend_welcomed","1");
+    setTimeout(showWelcome,400);
+  }
+}
+function showWelcome(){
+  const box=$("#modalBox");
+  box.innerHTML=`
+    <div class="reward-icon">🚀</div>
+    <h2>Добро пожаловать в Ascend</h2>
+    <p>Ваш личный путь к дисциплине и свободе начинается здесь.</p>
+    <div class="welcome-steps">
+      <div class="ws"><div class="wic">🎯</div><div><div class="wt">Отмечайте дни без срыва</div><div class="wd">Каждый день укрепляет вашу силу воли</div></div></div>
+      <div class="ws"><div class="wic">✅</div><div><div class="wt">Создавайте привычки</div><div class="wd">Маленькие шаги к большим переменам</div></div></div>
+      <div class="ws"><div class="wic">🏆</div><div><div class="wt">Получайте награды</div><div class="wd">Уровни, достижения, монеты и сундуки</div></div></div>
+    </div>
+    <button class="btn btn-primary btn-block" id="welcomeOk">Начать путь</button>`;
+  $("#modalOverlay").classList.add("show");
+  $("#welcomeOk").onclick=()=>{ $("#modalOverlay").classList.remove("show"); fireConfetti(); };
+}
+
+/* =========================================================================
+   ОБРАБОТЧИКИ СОБЫТИЙ
+   ========================================================================= */
+function bindEvents(){
+  // Вход
+  $("#authForm").addEventListener("submit",e=>{ e.preventDefault(); doLogin($("#authPass").value); });
+  $("#togglePass").addEventListener("click",()=>{
+    const i=$("#authPass"); i.type=i.type==="password"?"text":"password"; i.focus();
+  });
+  // Выход
+  $("#logoutBtn").addEventListener("click",logout);
+  $("#logoutBtnMobile").addEventListener("click",logout);
+
+  // Навигация (делегирование)
+  document.addEventListener("click",e=>{
+    const nav=e.target.closest(".nav-item");
+    if(nav){ switchView(nav.dataset.view); }
+  });
+  $("#profileQuick").addEventListener("click",()=>switchView("profile"));
+
+  // Восстановление
+  $("#btnCleanDay").addEventListener("click",markCleanDay);
+  $("#btnRelapse").addEventListener("click",markRelapse);
+
+  // Цитата
+  $("#newQuoteBtn").addEventListener("click",()=>{
+    state.quoteIndex=(state.quoteIndex+1)%QUOTES.length; saveState(); renderQuote();
+  });
+
+  // Привычки (делегирование внутри списка + пикер)
+  $("#addHabitBtn").addEventListener("click",addHabit);
+  $("#habitInput").addEventListener("keydown",e=>{ if(e.key==="Enter") addHabit(); });
+  $("#view-habits").addEventListener("click",e=>{
+    const em=e.target.closest("[data-emoji]");
+    if(em){ pickedEmoji=em.dataset.emoji; renderHabits(); return; }
+    const tg=e.target.closest("[data-toggle]"); if(tg){ toggleHabit(tg.dataset.toggle); return; }
+    const del=e.target.closest("[data-del]"); if(del){ deleteHabit(del.dataset.del); return; }
+  });
+
+  // Дневник
+  $("#saveJournalBtn").addEventListener("click",saveJournal);
+  $("#journalSearch").addEventListener("input",renderJournalList);
+  $("#moodPick").addEventListener("click",e=>{
+    const m=e.target.closest("[data-mood]"); if(m){ pickedMood=m.dataset.mood; renderJournal(); }
+  });
+
+  // Дашборд: задания и челлендж (делегирование)
+  $("#dailyTasks").addEventListener("click",e=>{
+    const ti=e.target.closest("[data-task]"); if(ti) completeTask(+ti.dataset.task);
+  });
+  $("#dailyChallenge").addEventListener("click",e=>{
+    if(e.target.closest("#challengeBtn")) completeChallenge();
+  });
+
+  // Аналитика — переключатель периода
+  $("#analyticsSeg").addEventListener("click",e=>{
+    const b=e.target.closest("[data-range]"); if(!b) return;
+    analyticsRange=b.dataset.range;
+    $$("#analyticsSeg button").forEach(x=>x.classList.toggle("active",x===b));
+    renderAnalytics();
+  });
+
+  // Награды — сундуки
+  $("#chestGrid").addEventListener("click",e=>{
+    const c=e.target.closest("[data-chest]"); if(c&&!c.disabled) openChest(c.dataset.chest);
+  });
+
+  // Профиль
+  $("#saveProfileBtn").addEventListener("click",()=>{
+    state.name=($("#profileName").value.trim()||"Чемпион").slice(0,24);
+    state.goal=$("#profileGoal").value.trim()||"90 дней дисциплины";
+    saveState(); renderTopbar(); renderProfile();
+    toast("💾","Сохранено","Профиль обновлён");
+  });
+  $("#exportBtn").addEventListener("click",exportData);
+  $("#importBtn").addEventListener("click",()=>$("#importFile").click());
+  $("#importFile").addEventListener("change",e=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=""; });
+  $("#backupBtn").addEventListener("click",backupData);
+  $("#restoreBtn").addEventListener("click",restoreData);
+  $("#resetBtn").addEventListener("click",resetData);
+
+  // Закрытие модалки по клику на фон
+  $("#modalOverlay").addEventListener("click",e=>{ if(e.target===$("#modalOverlay")) $("#modalOverlay").classList.remove("show"); });
+}
+
+/* =========================================================================
+   ИНИЦИАЛИЗАЦИЯ
+   ========================================================================= */
+function init(){
+  buildNav();
+  bindEvents();
+  if(isAuthed()){ enterApp(false); }
+  else { $("#authScreen").style.display="flex"; setTimeout(()=>$("#authPass").focus(),300); }
+}
+document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>

@@ -3,8 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-<meta name="theme-color" content="#0b0b15">
+<meta name="theme-color" content="#0b0b15" id="metaThemeColor">
 <meta name="description" content="Премиальный трекер привычек, самодисциплины и борьбы с зависимостями. Работает офлайн, данные хранятся в браузере.">
+
+<!-- PWA / мобильные мета-теги (iOS + Android) для установки как приложение -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ascend">
+<meta name="application-name" content="Ascend">
+<!-- Иконка приложения (встроенный data-URI, без внешних файлов) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%237c5cff'/%3E%3Cpath d='M90 36 36 144h108z' fill='none' stroke='white' stroke-width='12' stroke-linejoin='round'/%3E%3C/svg%3E">
+
 <title>Ascend · Трекер привычек и дисциплины</title>
 
 <!--
@@ -14,14 +24,16 @@
   Полностью автономное приложение в одном файле (HTML + CSS + JS).
   • Без серверной части — все данные хранятся в localStorage браузера.
   • Готово к размещению на Tilda (блок T123), Netlify, GitHub Pages, любом хостинге.
-  • Тёмная тема, glassmorphism, градиенты, плавные анимации, адаптивность.
+  • Тёмная/светлая тема, glassmorphism, градиенты, плавные анимации, адаптивность.
+  • PWA: устанавливается как приложение, работает офлайн (Service Worker).
 
   СТРУКТУРА ФАЙЛА:
-    1. <style>  — все стили (дизайн-система, компоненты, адаптив, анимации)
+    1. <style>  — все стили (дизайн-система, компоненты, адаптив, анимации, темы)
     2. <body>   — разметка экранов (вход + основное приложение)
-    3. <script> — логика (состояние, localStorage, геймификация, рендер)
+    3. <script> — логика (состояние, localStorage, геймификация, рендер, PWA)
 
-  Пароль для входа: 777
+  Безопасность: пароль не хранится в коде в открытом виде —
+  проверяется по SHA-256-хэшу через Web Crypto API (SubtleCrypto).
   =========================================================================
 -->
 
@@ -69,7 +81,35 @@
   --speed:.45s;
   --ease:cubic-bezier(.22,1,.36,1);
   --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --focus-ring:0 0 0 3px rgba(139,109,255,.55);   /* видимое кольцо фокуса (доступность) */
 }
+
+/* СВЕТЛАЯ ТЕМА: переопределяем токены при data-theme="light" на <html>.
+   Сохраняем тот же визуальный язык (стекло, градиенты), но на светлом фоне. */
+:root[data-theme="light"]{
+  --bg-0:#eef0f7;
+  --bg-1:#f5f6fb;
+  --bg-2:#ffffff;
+  --glass:rgba(255,255,255,.65);
+  --glass-strong:rgba(255,255,255,.85);
+  --glass-border:rgba(20,20,45,.10);
+  --glass-border-strong:rgba(20,20,45,.18);
+  --text:#1a1c2e;
+  --text-soft:#41465e;
+  --text-mut:#6b7088;
+  --shadow-1:0 10px 30px -14px rgba(40,40,90,.25);
+  --shadow-2:0 24px 60px -22px rgba(40,40,90,.30);
+  --glow:0 0 0 1px rgba(20,20,45,.05), 0 18px 50px -18px rgba(124,92,255,.35);
+}
+:root[data-theme="light"] body{background:var(--bg-1)}
+/* В светлой теме приглушаем яркие фоновые «капли», чтобы текст читался */
+:root[data-theme="light"] .bg-orbs span{opacity:.28}
+:root[data-theme="light"] .toast{background:rgba(255,255,255,.92)}
+
+/* ДОСТУПНОСТЬ: видимый фокус для клавиатурной навигации (Tab) */
+*:focus-visible{outline:none;box-shadow:var(--focus-ring);border-radius:8px}
+.nav-item:focus-visible,.btn:focus-visible,.icon-btn:focus-visible,
+.habit-check:focus-visible,.chest button:focus-visible{box-shadow:var(--focus-ring)}
 
 /* Сброс */
 *{margin:0;padding:0;box-sizing:border-box}
@@ -454,6 +494,77 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
 .seg button.active{background:var(--grad-primary);color:#fff}
 
 /* =========================================================================
+   НОВЫЕ КОМПОНЕНТЫ (улучшения)
+   ========================================================================= */
+
+/* --- SVG-иконка монеты (заменяет символ «¢») --- */
+.coin-ic{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.coin-ic svg{display:block}
+
+/* --- Кнопка действия в пустом состоянии (empty state CTA) --- */
+.empty .btn{margin-top:18px}
+
+/* --- Бейдж категории привычки --- */
+.cat-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;color:#fff;line-height:1.6}
+
+/* --- Пикер категорий/типов в форме (общий стиль чипов выбора) --- */
+.chip-pick{display:flex;gap:8px;flex-wrap:wrap}
+.chip-pick button{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:30px;font-size:13.5px;font-weight:700;
+  background:var(--glass);border:1px solid var(--glass-border);color:var(--text-soft);transition:all .25s var(--ease)}
+.chip-pick button:hover{border-color:var(--glass-border-strong);color:var(--text)}
+.chip-pick button.sel{background:var(--grad-primary);border-color:transparent;color:#fff;transform:translateY(-1px)}
+
+/* --- Карточка «Недельный обзор» --- */
+.week-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:4px}
+.week-cell{padding:14px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);text-align:center}
+.week-cell .wv{font-size:22px;font-weight:800}
+.week-cell .wl{font-size:11.5px;color:var(--text-mut);margin-top:3px;font-weight:600}
+.week-trend{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13px;padding:5px 12px;border-radius:20px;margin-top:4px}
+.week-trend.up{background:rgba(52,211,153,.15);color:var(--success)}
+.week-trend.down{background:rgba(255,93,115,.15);color:var(--danger)}
+.week-trend.flat{background:var(--glass);color:var(--text-mut)}
+.week-bigring{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.week-pct{font-size:40px;font-weight:900;letter-spacing:-1px;background:var(--grad-primary);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+
+/* --- Heatmap-календарь (тепловая карта в стиле GitHub) --- */
+.heatmap-wrap{overflow-x:auto;padding:6px 0}
+.heatmap-legend{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px;font-size:11.5px;color:var(--text-mut);font-weight:600}
+.heatmap-legend .lg-cells{display:flex;gap:3px}
+.heatmap-legend .lg-cells i{width:12px;height:12px;border-radius:3px;display:block}
+
+/* --- Онбординг-визард (4 шага) --- */
+.modal.ob-modal{max-width:480px;text-align:left}
+.ob-progress{height:7px;border-radius:30px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:6px}
+.ob-progress i{display:block;height:100%;border-radius:30px;background:var(--grad-primary);transition:width .5s var(--ease)}
+.ob-step-count{font-size:12px;color:var(--text-mut);font-weight:700;text-align:right;margin-bottom:18px}
+.ob-head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.ob-emoji{font-size:38px;line-height:1}
+.ob-modal h2{font-size:22px;margin-bottom:4px}
+.ob-modal .ob-sub{color:var(--text-mut);font-size:14px;margin-bottom:20px}
+.ob-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+.ob-opt{display:flex;align-items:center;gap:12px;padding:14px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);
+  transition:all .25s var(--ease);text-align:left;font-weight:700;font-size:14.5px;color:var(--text)}
+.ob-opt:hover{border-color:var(--glass-border-strong);transform:translateY(-2px)}
+.ob-opt.sel{background:linear-gradient(135deg,rgba(124,92,255,.25),rgba(255,93,162,.16));border-color:rgba(139,109,255,.6);box-shadow:inset 0 0 0 1px rgba(139,109,255,.4)}
+.ob-opt .oe{font-size:24px}
+.ob-templates{display:flex;flex-direction:column;gap:9px;margin-bottom:8px;max-height:280px;overflow-y:auto}
+.ob-tpl{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);transition:all .25s;font-weight:700;font-size:14px}
+.ob-tpl.sel{background:linear-gradient(135deg,rgba(124,92,255,.22),rgba(255,93,162,.14));border-color:rgba(139,109,255,.5)}
+.ob-tpl .ot-check{margin-left:auto;width:24px;height:24px;border-radius:7px;border:2px solid var(--glass-border-strong);display:flex;align-items:center;justify-content:center;color:transparent;flex-shrink:0}
+.ob-tpl.sel .ot-check{background:var(--grad-success);border-color:transparent;color:#04201a}
+.ob-actions{display:flex;gap:10px;margin-top:22px}
+.ob-goal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ob-goal{padding:18px 14px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--glass-border);text-align:center;transition:all .25s var(--ease)}
+.ob-goal:hover{transform:translateY(-2px);border-color:var(--glass-border-strong)}
+.ob-goal.sel{background:linear-gradient(135deg,rgba(124,92,255,.25),rgba(255,93,162,.16));border-color:rgba(139,109,255,.6)}
+.ob-goal .og-num{font-size:30px;font-weight:900;background:var(--grad-primary);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.ob-goal .og-lab{font-size:12px;color:var(--text-mut);margin-top:4px;font-weight:700}
+@media(max-width:480px){.ob-options{grid-template-columns:1fr}}
+
+/* --- Кнопка «Поделиться» в блоке восстановления --- */
+.share-streak{margin-top:2px}
+
+/* =========================================================================
    АДАПТИВНОСТЬ (планшет + телефон)
    ========================================================================= */
 @media(max-width:920px){
@@ -526,7 +637,7 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </form>
-    <p class="auth-hint">Демонстрационный пароль: <b>777</b></p>
+    <p class="auth-hint">Доступ защищён. Введите ваш <b>персональный пароль</b>.</p>
   </div>
 </div>
 
@@ -544,9 +655,9 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
         </div>
         <div class="name">Ascend<span>discipline os</span></div>
       </div>
-      <nav class="nav" id="navDesktop"></nav>
+      <nav class="nav" id="navDesktop" role="navigation" aria-label="Основная навигация"></nav>
       <div class="sidebar-foot">
-        <button class="btn btn-ghost btn-block" id="logoutBtn">
+        <button class="btn btn-ghost btn-block" id="logoutBtn" aria-label="Выйти из аккаунта">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
           Выйти
         </button>
@@ -563,8 +674,8 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
           <div class="name">Ascend</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <div class="coin-pill"><span class="c">¢</span><span id="coinsMobile">0</span></div>
-          <button class="icon-btn" id="logoutBtnMobile" title="Выйти">
+          <div class="coin-pill"><span class="c" id="coinIcMobile"></span><span id="coinsMobile">0</span></div>
+          <button class="icon-btn" id="logoutBtnMobile" title="Выйти" aria-label="Выйти из аккаунта">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
           </button>
         </div>
@@ -577,8 +688,8 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
           <p id="greetSub">Сегодня отличный день стать лучше</p>
         </div>
         <div class="topbar-actions">
-          <div class="coin-pill"><span class="c">¢</span><span id="coins">0</span></div>
-          <button class="icon-btn" id="profileQuick" title="Профиль">
+          <div class="coin-pill"><span class="c" id="coinIc"></span><span id="coins">0</span></div>
+          <button class="icon-btn" id="profileQuick" title="Профиль" aria-label="Открыть профиль">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
           </button>
         </div>
@@ -589,6 +700,14 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
         <!-- Карточки статистики -->
         <div class="section">
           <div class="grid stats-grid" id="statsGrid"></div>
+        </div>
+
+        <!-- Недельный обзор -->
+        <div class="section">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Недельный обзор</h3></div>
+            <div id="weekReview"></div>
+          </div>
         </div>
 
         <!-- Уровень + цитата -->
@@ -635,6 +754,11 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
                 <div class="m"><div class="v" id="bestStreak">0</div><div class="l">Лучшая серия</div></div>
                 <div class="m"><div class="v" id="relapseCount">0</div><div class="l">Срывов всего</div></div>
               </div>
+              <!-- Кнопка «Поделиться»: генерирует картинку стрика через Canvas -->
+              <button class="btn btn-ghost btn-block share-streak" id="shareStreakBtn" aria-label="Поделиться своим прогрессом">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+                Поделиться стриком
+              </button>
             </div>
           </div>
         </div>
@@ -680,6 +804,9 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
               </button>
             </div>
             <div class="add-row"><div class="emoji-pick" id="habitEmojiPick"></div></div>
+            <!-- Выбор категории привычки -->
+            <div style="font-size:12px;color:var(--text-mut);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px">Категория</div>
+            <div class="add-row"><div class="chip-pick" id="habitCatPick"></div></div>
             <div id="habitsList"></div>
           </div>
         </div>
@@ -730,6 +857,19 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
             <div class="bars" id="chartHabits"></div>
           </div>
         </div>
+        <!-- Heatmap-календарь активности (стиль GitHub) -->
+        <div class="section">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Карта активности за год</h3></div>
+            <div class="heatmap-wrap" id="heatmapWrap"></div>
+            <div class="heatmap-legend">
+              Меньше
+              <span class="lg-cells" id="heatLegend"></span>
+              Больше
+            </div>
+          </div>
+        </div>
+
         <div class="section">
           <div class="card lift">
             <div class="section-title"><h3><span class="dot"></span>Лучшие результаты</h3></div>
@@ -775,6 +915,51 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
           </div>
         </div>
 
+        <!-- Внешний вид: переключатель темы -->
+        <div class="section">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Внешний вид</h3></div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Тема оформления</div><div class="d">Тёмная, светлая или как в системе</div></div>
+              <div class="seg" id="themeSeg" role="group" aria-label="Выбор темы">
+                <button data-theme-val="dark">🌙 Тёмная</button>
+                <button data-theme-val="light">☀️ Светлая</button>
+                <button data-theme-val="system">🖥 Система</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Уведомления и напоминания -->
+        <div class="section">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Напоминания</h3></div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Ежедневное напоминание</div><div class="d">Push-уведомление, чтобы не забыть отметить день</div></div>
+              <button class="btn btn-ghost btn-sm" id="remindToggleBtn">Включить</button>
+            </div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Время напоминания</div><div class="d">Когда присылать уведомление</div></div>
+              <input type="time" class="inp" id="remindTime" value="20:00" style="max-width:140px;flex:0 0 auto">
+            </div>
+          </div>
+        </div>
+
+        <!-- Установка приложения (PWA) -->
+        <div class="section">
+          <div class="card lift">
+            <div class="section-title"><h3><span class="dot"></span>Приложение</h3></div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Установить приложение</div><div class="d" id="installHint">Добавьте Ascend на главный экран — работает офлайн</div></div>
+              <button class="btn btn-primary btn-sm" id="installBtn">Установить</button>
+            </div>
+            <div class="setting-row">
+              <div class="sr-info"><div class="t">Пройти онбординг заново</div><div class="d">Повторить первоначальную настройку</div></div>
+              <button class="btn btn-ghost btn-sm" id="redoOnboardBtn">Запустить</button>
+            </div>
+          </div>
+        </div>
+
         <div class="section">
           <div class="card lift">
             <div class="section-title"><h3><span class="dot"></span>Данные и резервное копирование</h3></div>
@@ -807,7 +992,7 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
   </div>
 
   <!-- Мобильная нижняя навигация -->
-  <nav class="mobnav" id="navMobile"></nav>
+  <nav class="mobnav" id="navMobile" role="navigation" aria-label="Мобильная навигация"></nav>
 </div>
 
 <!-- Контейнеры для тостов, модалок, конфетти -->
@@ -826,12 +1011,22 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.6}
 "use strict";
 
 /* ---------- Константы ---------- */
-const PASSWORD   = "777";                 // пароль входа
+// БЕЗОПАСНОСТЬ: пароль не хранится в открытом виде. В коде только его
+// SHA-256-хэш. При входе введённый пароль хэшируется через Web Crypto API
+// (SubtleCrypto) и сравнивается с этим значением — исходный пароль
+// невозможно прочитать в исходном коде. (Это хэш демо-пароля.)
+const PASSWORD_HASH = "eaf89db7108470dc3f6b23ea90618264b3e8f8b6145371667c4055e9c5ce9f52";
 const STORE_KEY  = "ascend_state_v1";     // ключ состояния
 const AUTH_KEY   = "ascend_auth_v1";      // ключ авторизации
 const BACKUP_KEY = "ascend_backup_v1";    // ключ резервной копии
 const XP_PER_DAY = 50;                     // опыт за чистый день
 const XP_PER_HABIT = 12;                   // опыт за привычку
+
+/* SHA-256 через SubtleCrypto: возвращает hex-строку хэша (без серверной части) */
+async function sha256Hex(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
 
 /* ---------- Утилиты ---------- */
 const $  = (s,el=document)=>el.querySelector(s);
@@ -929,6 +1124,55 @@ const TREE_STAGES = [
 const HABIT_EMOJIS = ["🏃","📚","💧","🧘","💪","🥗","😴","✍️","🎯","🚭"];
 const MOODS = ["😄","🙂","😐","😟","😢","😡","😴","🤩"];
 
+/* ---------- Категории привычек (с цветом для бейджа) ---------- */
+const HABIT_CATEGORIES = [
+  {id:"health",  name:"Здоровье",      emoji:"💪", color:"#34d399"},
+  {id:"focus",   name:"Продуктивность",emoji:"🧠", color:"#7c5cff"},
+  {id:"sport",   name:"Спорт",         emoji:"🏃", color:"#ff7a59"},
+  {id:"sleep",   name:"Сон",           emoji:"😴", color:"#37d4ff"},
+  {id:"learn",   name:"Обучение",      emoji:"📚", color:"#ffae42"},
+];
+function catById(id){ return HABIT_CATEGORIES.find(c=>c.id===id) || HABIT_CATEGORIES[0]; }
+
+/* ---------- Типы зависимости (для онбординга) ---------- */
+const ADDICTION_TYPES = [
+  {id:"alcohol", name:"Алкоголь",     emoji:"🍷"},
+  {id:"nicotine",name:"Никотин",      emoji:"🚬"},
+  {id:"social",  name:"Соцсети",      emoji:"📱"},
+  {id:"gaming",  name:"Игры",         emoji:"🎮"},
+  {id:"sugar",   name:"Сахар",        emoji:"🍰"},
+  {id:"other",   name:"Другое",       emoji:"🎯"},
+];
+function addictionById(id){ return ADDICTION_TYPES.find(a=>a.id===id); }
+
+/* ---------- Готовые шаблоны привычек (для онбординга) ---------- */
+const HABIT_TEMPLATES = [
+  {name:"Пить 2 литра воды",     emoji:"💧", cat:"health"},
+  {name:"Зарядка 10 минут",      emoji:"💪", cat:"sport"},
+  {name:"Медитация",             emoji:"🧘", cat:"health"},
+  {name:"Читать 15 минут",       emoji:"📚", cat:"learn"},
+  {name:"Сон до 23:00",          emoji:"😴", cat:"sleep"},
+  {name:"Прогулка на воздухе",   emoji:"🏃", cat:"sport"},
+  {name:"Планирование дня",      emoji:"✍️", cat:"focus"},
+  {name:"Без телефона за час до сна", emoji:"📵", cat:"sleep"},
+];
+
+/* ---------- SVG-иконка монеты (заменяет символ «¢») ----------
+   coinGlyph — только знак для золотого кружка в «пилюле» баланса.
+   coinIcon  — полная монета (золотой диск + знак) для списков наград и шеринга. */
+function coinGlyph(size=13){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#5a3b00" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">`+
+         `<path d="M14.6 9a3 3 0 0 0-2.6-1.3c-1.7 0-2.7 1-2.7 2 0 2.6 5.8 1.3 5.8 4 0 1.2-1.2 2.1-2.9 2.1A3.3 3.3 0 0 1 9 16.4M12 6.1v1.6M12 16.2v1.6"/></svg>`;
+}
+function coinIcon(size=20){
+  const id="cg"+Math.random().toString(36).slice(2,7);
+  return `<span class="coin-ic"><svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">`+
+    `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd66b"/><stop offset=".6" stop-color="#ffae42"/><stop offset="1" stop-color="#ff8f3b"/></linearGradient></defs>`+
+    `<circle cx="12" cy="12" r="11" fill="url(#${id})"/>`+
+    `<circle cx="12" cy="12" r="8.4" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.2"/>`+
+    `<path d="M14.6 9a3 3 0 0 0-2.6-1.3c-1.7 0-2.7 1-2.7 2 0 2.6 5.8 1.3 5.8 4 0 1.2-1.2 2.1-2.9 2.1A3.3 3.3 0 0 1 9 16.4M12 6.1v1.6M12 16.2v1.6" fill="none" stroke="#7a4e00" stroke-width="1.7" stroke-linecap="round"/></svg></span>`;
+}
+
 /* =========================================================================
    СОСТОЯНИЕ
    ========================================================================= */
@@ -966,6 +1210,12 @@ function defaultState(){
     tasksCompleted: 0,
     chestOpened: {},            // {chestId: dateKey}
     quoteIndex: 0,
+    // --- Новые поля ---
+    onboarded: false,           // пройден ли онбординг
+    addictionType: null,        // тип зависимости (id из ADDICTION_TYPES)
+    goalDays: 90,               // цель в днях
+    theme: "dark",              // тема: dark | light | system
+    reminders: { enabled:false, time:"20:00", lastShown:null }, // напоминания
   };
 }
 
@@ -1029,7 +1279,7 @@ function onLevelUp(level){
     icon:"🎉",
     title:`Уровень ${level}!`,
     desc:`Вы достигли звания «${rankName(level)}». Так держать!`,
-    rewards:[{e:"⭐",t:`Новый уровень: ${level}`},{e:"¢",t:`+40 монет`}],
+    rewards:[{e:"⭐",t:`Новый уровень: ${level}`},{e:"coin",t:`+40 монет`}],
     btn:"Прекрасно!"
   });
   fireConfetti();
@@ -1048,7 +1298,7 @@ function checkAchievements(){
         icon:a.emoji,
         title:`Достижение разблокировано!`,
         desc:`«${a.name}» — ${a.desc}`,
-        rewards:[{e:"¢",t:`+${a.coins} монет`},{e:"⭐",t:`+${a.xp} XP`}],
+        rewards:[{e:"coin",t:`+${a.coins} монет`},{e:"⭐",t:`+${a.xp} XP`}],
         btn:"Забрать награду"
       });
     }
@@ -1124,11 +1374,13 @@ function markRelapse(){
    ДЕЙСТВИЯ: привычки
    ========================================================================= */
 let pickedEmoji = HABIT_EMOJIS[0];
+let pickedCat = HABIT_CATEGORIES[0].id;   // выбранная категория
 function addHabit(){
   const inp = $("#habitInput");
   const name = inp.value.trim();
   if(!name){ toast("✏️","Введите название","Поле привычки пустое"); inp.focus(); return; }
-  state.habits.push({ id:uid(), name, emoji:pickedEmoji, createdAt:todayKey(), history:[], streak:0 });
+  // category — выбранная категория привычки
+  state.habits.push({ id:uid(), name, emoji:pickedEmoji, category:pickedCat, createdAt:todayKey(), history:[], streak:0 });
   inp.value="";
   toast("✅","Привычка добавлена",`«${name}» в списке`);
   checkBadges();
@@ -1221,7 +1473,7 @@ function completeTask(i){
   // Все задания выполнены?
   if(state.dailyTasks.every(x=>x.done)){
     addCoins(25);
-    queueReward({icon:"🌟",title:"Все задания дня!",desc:"Вы выполнили все ежедневные задания.",rewards:[{e:"¢",t:"+25 бонусных монет"}],btn:"Отлично"});
+    queueReward({icon:"🌟",title:"Все задания дня!",desc:"Вы выполнили все ежедневные задания.",rewards:[{e:"coin",t:"+25 бонусных монет"}],btn:"Отлично"});
   }
   checkBadges();
   saveState(); renderDashboard();
@@ -1230,7 +1482,7 @@ function completeChallenge(){
   if(!state.challenge || state.challenge.done) return;
   state.challenge.done = true;
   addXp(state.challenge.r); addCoins(state.challenge.r);
-  queueReward({icon:state.challenge.e,title:"Челлендж пройден!",desc:state.challenge.t,rewards:[{e:"⭐",t:`+${state.challenge.r} XP`},{e:"¢",t:`+${state.challenge.r} монет`}],btn:"Я молодец"});
+  queueReward({icon:state.challenge.e,title:"Челлендж пройден!",desc:state.challenge.t,rewards:[{e:"⭐",t:`+${state.challenge.r} XP`},{e:"coin",t:`+${state.challenge.r} монет`}],btn:"Я молодец"});
   checkBadges();
   saveState(); renderDashboard();
 }
@@ -1256,7 +1508,7 @@ function openChest(chestId){
   checkBadges();
   queueReward({
     icon:"🎁", title:"Сундук открыт!", desc:`${chest.name} принёс награду:`,
-    rewards:[{e:"¢",t:`+${coinReward} монет`},{e:"⭐",t:`+${xpReward} XP`}], btn:"Забрать"
+    rewards:[{e:"coin",t:`+${coinReward} монет`},{e:"⭐",t:`+${xpReward} XP`}], btn:"Забрать"
   });
   saveState(); renderRewards(); renderTopbar();
 }
@@ -1279,6 +1531,9 @@ function renderAll(){
 function renderTopbar(){
   $("#coins").textContent = Math.floor(state.coins);
   $("#coinsMobile").textContent = Math.floor(state.coins);
+  // SVG-иконка монеты вместо символа «¢»
+  $("#coinIc").innerHTML = coinGlyph(13);
+  $("#coinIcMobile").innerHTML = coinGlyph(13);
   const hour = new Date().getHours();
   const greet = hour<6?"Доброй ночи":hour<12?"Доброе утро":hour<18?"Добрый день":"Добрый вечер";
   $("#greetTitle").innerHTML = `${greet}, ${escapeHtml(state.name)} 👋`;
@@ -1335,6 +1590,8 @@ function renderDashboard(){
 
   // Цитата
   renderQuote();
+  // Недельный обзор
+  renderWeekReview();
   // Дерево
   renderTree();
   // Карта пути
@@ -1435,21 +1692,28 @@ function renderHabits(){
   // эмодзи-пикер
   $("#habitEmojiPick").innerHTML = HABIT_EMOJIS.map(e=>
     `<button class="${e===pickedEmoji?'sel':''}" data-emoji="${e}">${e}</button>`).join("");
+  // пикер категорий
+  $("#habitCatPick").innerHTML = HABIT_CATEGORIES.map(c=>
+    `<button class="${c.id===pickedCat?'sel':''}" data-cat="${c.id}">${c.emoji} ${c.name}</button>`).join("");
   // список
   const t = todayKey();
   if(state.habits.length===0){
-    $("#habitsList").innerHTML = `<div class="empty"><div class="ee">🌱</div><div class="et">Пока нет привычек</div><div class="ed">Добавьте первую привычку выше, чтобы начать</div></div>`;
+    // Пустое состояние с CTA-кнопкой
+    $("#habitsList").innerHTML = `<div class="empty"><div class="ee">🌱</div><div class="et">Пока нет привычек</div>
+      <div class="ed">Создайте первую привычку — маленькие шаги ведут к большим переменам</div>
+      <button class="btn btn-primary" id="emptyAddHabit">＋ Добавить первую привычку</button></div>`;
     return;
   }
   $("#habitsList").innerHTML = state.habits.map(h=>{
     const done = h.history.includes(t);
     const strength = habitStrength(h);
     const total = h.history.length;
+    const cat = catById(h.category);   // категория привычки
     return `<div class="habit ${done?'done':''}" data-habit="${h.id}">
-      <button class="habit-check" data-toggle="${h.id}">${done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="16" height="16"><path d="M20 6 9 17l-5-5"/></svg>':''}</button>
+      <button class="habit-check" data-toggle="${h.id}" aria-label="Отметить «${escapeHtml(h.name)}»">${done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="16" height="16"><path d="M20 6 9 17l-5-5"/></svg>':''}</button>
       <span class="habit-emoji">${h.emoji}</span>
       <div class="habit-body">
-        <div class="hn">${escapeHtml(h.name)}</div>
+        <div class="hn">${escapeHtml(h.name)}<span class="cat-badge" style="background:${cat.color}">${cat.emoji} ${cat.name}</span></div>
         <div class="habit-meta">
           <span class="fire">🔥 ${h.streak} ${plural(h.streak,'день','дня','дней')} подряд</span>
           <span>✅ ${total} выполнений</span>
@@ -1457,7 +1721,7 @@ function renderHabits(){
         </div>
         <div class="habit-strength"><i style="width:${strength}%"></i></div>
       </div>
-      <button class="icon-btn habit-del" data-del="${h.id}" title="Удалить">
+      <button class="icon-btn habit-del" data-del="${h.id}" title="Удалить" aria-label="Удалить привычку «${escapeHtml(h.name)}»">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
       </button>
     </div>`;
@@ -1475,7 +1739,11 @@ function renderJournalList(){
   let list = state.journal;
   if(q) list = list.filter(e=>e.text.toLowerCase().includes(q));
   if(list.length===0){
-    $("#journalList").innerHTML = `<div class="empty"><div class="ee">📔</div><div class="et">${q?'Ничего не найдено':'Записей пока нет'}</div><div class="ed">${q?'Попробуйте другой запрос':'Начните вести дневник сегодня'}</div></div>`;
+    // Пустое состояние: при поиске — без CTA, без записей — с CTA
+    $("#journalList").innerHTML = `<div class="empty"><div class="ee">📔</div>
+      <div class="et">${q?'Ничего не найдено':'Записей пока нет'}</div>
+      <div class="ed">${q?'Попробуйте другой запрос':'Запишите свои мысли — это помогает осознанности'}</div>
+      ${q?'':'<button class="btn btn-primary" id="emptyAddJournal">✍️ Написать первую запись</button>'}</div>`;
     return;
   }
   $("#journalList").innerHTML = list.map(e=>`
@@ -1492,6 +1760,17 @@ function renderJournalList(){
 /* --- Аналитика --- */
 let analyticsRange = "week";
 function renderAnalytics(){
+  // Пустое состояние: если ещё нет ни данных восстановления, ни привычек
+  const hasData = state.cleanLog.length>0 || state.habits.length>0 || state.relapseCount>0 || state.successfulDays>0;
+  if(!hasData){
+    $("#analyticsStats").innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="ee">📊</div>
+      <div class="et">Пока нет данных для анализа</div>
+      <div class="ed">Отмечайте дни и привычки — здесь появятся графики и статистика</div>
+      <button class="btn btn-primary" id="emptyGoTrack">Начать отслеживание</button></div>`;
+    $("#chartDays").innerHTML = $("#chartHabits").innerHTML = $("#bestResults").innerHTML = "";
+    renderHeatmap(); // карта активности рисуется всегда (пустая сетка тоже информативна)
+    return;
+  }
   // статистика
   const stats=[
     {ic:"✅",grad:"var(--grad-success)",val:state.successfulDays,lab:"Успешных дней",spark:"✓"},
@@ -1540,6 +1819,98 @@ function renderAnalytics(){
   $("#bestResults").innerHTML = best.map(s=>`
     <div class="card stat lift"><div class="ic" style="background:${s.grad}">${s.ic}</div>
     <div class="val">${s.val}</div><div class="lab">${s.lab}</div><div class="spark">${s.spark}</div></div>`).join("");
+
+  // Heatmap-календарь активности
+  renderHeatmap();
+}
+
+/* --- Heatmap-календарь активности (SVG, стиль GitHub: 53 недели × 7 дней) ---
+   Цвет ячейки = интенсивность дня: доля выполненных привычек + бонус за чистый день. */
+const HEAT_COLORS = ["rgba(255,255,255,.06)","#1e5b48","#2a8e6a","#27c08a","#34d399"];
+function dayIntensity(k){
+  // 0..4 — уровень активности за конкретную дату k (YYYY-MM-DD)
+  let score = 0;
+  if(state.cleanLog.includes(k)) score += 2;            // отмечен чистый день
+  const habitsDone = state.habitLog[k]||0;
+  if(state.habits.length>0){
+    const ratio = habitsDone/state.habits.length;       // доля выполненных привычек
+    score += Math.round(ratio*2);
+  } else if(habitsDone>0){ score += 1; }
+  if(state.relapseLog.some(r=>r.date.slice(0,10)===k)) score = 1; // в день срыва — минимум
+  return clamp(score,0,4);
+}
+function renderHeatmap(){
+  const weeks = 53, cell = 13, gap = 3, top = 18, left = 26;
+  const W = left + weeks*(cell+gap), H = top + 7*(cell+gap);
+  // Начало: ближайшее воскресенье 52 недели назад
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(today); start.setDate(start.getDate() - (weeks*7-1));
+  start.setDate(start.getDate() - start.getDay()); // выровнять на начало недели
+  const dayLabels = ["", "Пн", "", "Ср", "", "Пт", ""];
+  let cells = "", monthLabels = "", lastMonth = -1;
+  for(let w=0; w<weeks; w++){
+    for(let d=0; d<7; d++){
+      const date = new Date(start); date.setDate(start.getDate() + w*7 + d);
+      if(date>today) continue;
+      const k = todayKey(date);
+      const lvl = dayIntensity(k);
+      const x = left + w*(cell+gap), y = top + d*(cell+gap);
+      cells += `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="${HEAT_COLORS[lvl]}"><title>${date.toLocaleDateString('ru-RU')} · уровень ${lvl}/4</title></rect>`;
+      // подпись месяца (раз в начале месяца, в верхнем ряду)
+      if(d===0 && date.getMonth()!==lastMonth){
+        lastMonth = date.getMonth();
+        const mn = date.toLocaleDateString('ru-RU',{month:'short'});
+        monthLabels += `<text x="${x}" y="${top-6}" fill="var(--text-mut)" font-size="10" font-weight="600">${mn}</text>`;
+      }
+    }
+  }
+  const rowLabels = dayLabels.map((l,i)=>l?`<text x="0" y="${top+i*(cell+gap)+cell-2}" fill="var(--text-mut)" font-size="9.5" font-weight="600">${l}</text>`:"").join("");
+  $("#heatmapWrap").innerHTML =
+    `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="min-width:${W}px" role="img" aria-label="Карта активности за год">${monthLabels}${rowLabels}${cells}</svg>`;
+  // Легенда уровней
+  $("#heatLegend").innerHTML = HEAT_COLORS.map(c=>`<i style="background:${c}"></i>`).join("");
+}
+
+/* --- Недельный обзор: % выполнения за 7 дней, лучший/худший день, динамика --- */
+function renderWeekReview(){
+  // Подсчёт «балла» каждого из последних 14 дней (для сравнения двух недель)
+  function dayScore(date){
+    const k = todayKey(date);
+    let s = 0, max = 0;
+    // привычки
+    if(state.habits.length){ max += 1; s += clamp((state.habitLog[k]||0)/state.habits.length,0,1); }
+    // чистый день
+    max += 1; if(state.cleanLog.includes(k)) s += 1;
+    if(state.relapseLog.some(r=>r.date.slice(0,10)===k)) s = 0;
+    return max ? s/max : 0;
+  }
+  const names = ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
+  const thisWeek = [], lastWeek = [];
+  for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); thisWeek.push({d,score:dayScore(d)}); }
+  for(let i=13;i>=7;i--){ const d=new Date(); d.setDate(d.getDate()-i); lastWeek.push(dayScore(d)); }
+  const avg = arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;
+  const pctNow = Math.round(avg(thisWeek.map(x=>x.score))*100);
+  const pctPrev = Math.round(avg(lastWeek)*100);
+  const diff = pctNow - pctPrev;
+  // лучший и худший день недели
+  let best=thisWeek[0], worst=thisWeek[0];
+  thisWeek.forEach(x=>{ if(x.score>best.score)best=x; if(x.score<worst.score)worst=x; });
+  const dn = d=>names[d.getDay()];
+  const trendCls = diff>0?"up":diff<0?"down":"flat";
+  const trendIco = diff>0?"▲":diff<0?"▼":"▬";
+  $("#weekReview").innerHTML = `
+    <div class="week-bigring">
+      <div class="week-pct">${pctNow}%</div>
+      <div>
+        <div style="font-weight:700">Выполнение за 7 дней</div>
+        <div class="week-trend ${trendCls}">${trendIco} ${diff>0?'+':''}${diff}% к прошлой неделе</div>
+      </div>
+    </div>
+    <div class="week-grid">
+      <div class="week-cell"><div class="wv" style="color:var(--success)">${dn(best.d)}</div><div class="wl">Лучший день (${Math.round(best.score*100)}%)</div></div>
+      <div class="week-cell"><div class="wv" style="color:var(--danger)">${dn(worst.d)}</div><div class="wl">Слабый день (${Math.round(worst.score*100)}%)</div></div>
+      <div class="week-cell"><div class="wv">${pctPrev}%</div><div class="wl">Прошлая неделя</div></div>
+    </div>`;
 }
 
 /* --- Награды / достижения / сундуки --- */
@@ -1585,6 +1956,14 @@ function renderProfile(){
   $("#profileSince").textContent = `В пути с ${new Date(state.createdAt).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}`;
   const backup = localStorage.getItem(BACKUP_KEY);
   $("#backupInfo").textContent = backup ? `Копия от ${new Date(JSON.parse(backup)._backupAt||Date.now()).toLocaleString('ru-RU')}` : "Резервная копия не найдена";
+  // Тема — подсветка активной кнопки
+  $$("#themeSeg button").forEach(b=>b.classList.toggle("active", b.dataset.themeVal===state.theme));
+  // Напоминания — текст кнопки и время
+  const rt=$("#remindToggleBtn");
+  if(rt){ rt.textContent = state.reminders.enabled ? "Выключить" : "Включить"; rt.classList.toggle("btn-primary",state.reminders.enabled); rt.classList.toggle("btn-ghost",!state.reminders.enabled); }
+  const tm=$("#remindTime"); if(tm) tm.value = state.reminders.time || "20:00";
+  // Кнопка установки PWA
+  updateInstallUI();
 }
 
 /* =========================================================================
@@ -1619,7 +1998,7 @@ function showModal(cfg){
     <div class="reward-icon">${cfg.icon||"✨"}</div>
     <h2>${escapeHtml(cfg.title||"")}</h2>
     <p>${escapeHtml(cfg.desc||"")}</p>
-    ${cfg.rewards?`<div class="reward-list">${cfg.rewards.map(r=>`<div class="rr"><span style="font-size:20px">${r.e}</span>${escapeHtml(r.t)}</div>`).join("")}</div>`:""}
+    ${cfg.rewards?`<div class="reward-list">${cfg.rewards.map(r=>`<div class="rr">${r.e==="coin"?coinIcon(22):`<span style="font-size:20px">${r.e}</span>`}${escapeHtml(r.t)}</div>`).join("")}</div>`:""}
     <div style="display:flex;gap:10px;${cfg.confirm?'':'justify-content:center'}">
       ${cfg.confirm?`<button class="btn btn-ghost btn-block" id="modalCancel">${escapeHtml(cfg.cancel||"Отмена")}</button>`:""}
       <button class="btn btn-primary btn-block" id="modalOk">${escapeHtml(cfg.btn||"OK")}</button>
@@ -1675,8 +2054,9 @@ const NAV=[
   {id:"profile",  label:"Профиль", icon:'<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>'},
 ];
 function buildNav(){
-  const mk=(item)=>`<a class="nav-item ${item.id==='dashboard'?'active':''}" data-view="${item.id}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${item.icon}</svg>
+  // role="link" + aria-label + tabindex + клавиатура — для доступности
+  const mk=(item)=>`<a class="nav-item ${item.id==='dashboard'?'active':''}" data-view="${item.id}" role="link" tabindex="0" aria-label="${item.label}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${item.icon}</svg>
     <span>${item.label}</span></a>`;
   $("#navDesktop").innerHTML = NAV.map(mk).join("");
   $("#navMobile").innerHTML = NAV.map(mk).join("");
@@ -1728,9 +2108,178 @@ function restoreData(){
 }
 function resetData(){
   showModal({icon:"⚠️",title:"Сбросить всё?",desc:"Все данные, достижения и прогресс будут удалены безвозвратно.",confirm:true,btn:"Удалить всё",cancel:"Отмена",onConfirm:()=>{
-    state=defaultState(); saveState(); renderAll(); switchView("dashboard");
+    state=defaultState(); saveState(); applyTheme(); renderAll(); switchView("dashboard");
     toast("🔄","Сброшено","Приложение начато заново");
   }});
+}
+
+/* =========================================================================
+   ТЕМА ОФОРМЛЕНИЯ (тёмная / светлая / системная)
+   ========================================================================= */
+function applyTheme(){
+  const t = (state && state.theme) || "dark";
+  // «system» — берём предпочтение ОС
+  const sysLight = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches;
+  const effective = t==="system" ? (sysLight?"light":"dark") : t;
+  document.documentElement.setAttribute("data-theme", effective);
+  // обновляем цвет статус-бара браузера
+  const m=$("#metaThemeColor"); if(m) m.setAttribute("content", effective==="light"?"#f5f6fb":"#0b0b15");
+  // подсветка активной кнопки в настройках
+  $$("#themeSeg button").forEach(b=>b.classList.toggle("active", b.dataset.themeVal===t));
+}
+function setTheme(t){ state.theme=t; saveState(); applyTheme(); }
+
+/* =========================================================================
+   PWA: inline-манифест + Service Worker + установка
+   ========================================================================= */
+// Иконка приложения как data-URI (без внешних файлов)
+const ICON_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%237c5cff'/%3E%3Cpath d='M256 104 104 408h304z' fill='none' stroke='white' stroke-width='34' stroke-linejoin='round'/%3E%3C/svg%3E";
+let deferredPrompt = null;   // перехваченное событие установки
+function setupPWA(){
+  // 1) Манифест приложения создаём «на лету» через Blob и подключаем в <head>
+  const manifest = {
+    name:"Ascend — трекер привычек и дисциплины", short_name:"Ascend",
+    description:"Трекер привычек, самодисциплины и борьбы с зависимостями",
+    start_url:".", scope:".", display:"standalone", orientation:"portrait",
+    background_color:"#0b0b15", theme_color:"#0b0b15", lang:"ru",
+    icons:[
+      {src:ICON_URL, sizes:"192x192", type:"image/svg+xml", purpose:"any"},
+      {src:ICON_URL, sizes:"512x512", type:"image/svg+xml", purpose:"any maskable"}
+    ]
+  };
+  try{
+    const url = URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:"application/manifest+json"}));
+    const link = document.createElement("link"); link.rel="manifest"; link.href=url;
+    document.head.appendChild(link);
+  }catch(e){}
+
+  // 2) Service Worker для офлайн-кэширования (регистрируем из inline-кода через Blob).
+  //    Если окружение не поддерживает регистрацию из Blob — приложение всё равно
+  //    работает офлайн, т.к. это единый самодостаточный файл без внешних запросов.
+  if("serviceWorker" in navigator){
+    const swCode = `
+      const CACHE="ascend-cache-v1";
+      self.addEventListener("install",e=>self.skipWaiting());
+      self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));
+      self.addEventListener("fetch",e=>{
+        if(e.request.method!=="GET") return;
+        e.respondWith(
+          caches.open(CACHE).then(cache=>
+            cache.match(e.request).then(cached=>{
+              const network=fetch(e.request).then(res=>{ if(res&&res.ok) cache.put(e.request,res.clone()); return res; }).catch(()=>cached);
+              return cached||network;
+            })
+          )
+        );
+      });`;
+    try{
+      const swUrl = URL.createObjectURL(new Blob([swCode],{type:"text/javascript"}));
+      navigator.serviceWorker.register(swUrl).catch(()=>{/* недоступно — не критично */});
+    }catch(e){}
+  }
+
+  // 3) Перехват события установки (Android/Chrome)
+  window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); deferredPrompt=e; updateInstallUI(); });
+  window.addEventListener("appinstalled", ()=>{ deferredPrompt=null; toast("📲","Установлено","Ascend добавлен на устройство"); updateInstallUI(); });
+}
+function isStandalone(){ return (window.matchMedia&&matchMedia("(display-mode: standalone)").matches) || navigator.standalone===true; }
+function updateInstallUI(){
+  const btn=$("#installBtn"), hint=$("#installHint"); if(!btn) return;
+  if(isStandalone()){ btn.disabled=true; btn.textContent="Установлено ✓"; if(hint) hint.textContent="Приложение уже установлено"; }
+  else { btn.disabled=false; btn.textContent="Установить"; }
+}
+async function installApp(){
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    try{ await deferredPrompt.userChoice; }catch(e){}
+    deferredPrompt=null; updateInstallUI();
+  }else{
+    // iOS Safari и др. — показываем инструкцию
+    showModal({icon:"📲",title:"Установка приложения",
+      desc:"Откройте меню браузера (Поделиться) и выберите «Добавить на главный экран» / «Установить приложение». После этого Ascend будет открываться как обычное приложение и работать офлайн.",
+      btn:"Понятно"});
+  }
+}
+
+/* =========================================================================
+   УВЕДОМЛЕНИЯ (локальные напоминания через Notification API, без сервера)
+   ========================================================================= */
+function requestNotifyPermission(){
+  if(!("Notification" in window)){ toast("🔕","Не поддерживается","Браузер не умеет показывать уведомления"); return Promise.resolve(false); }
+  return Notification.requestPermission().then(p=>{
+    if(p==="granted"){ toast("🔔","Уведомления включены","Будем напоминать вовремя"); return true; }
+    toast("🔕","Доступ не выдан","Разрешите уведомления в настройках браузера"); return false;
+  }).catch(()=>false);
+}
+// Показ напоминания, если наступило назначенное время и день ещё не отмечен
+function fireReminderIfDue(){
+  const r=state&&state.reminders; if(!r||!r.enabled) return;
+  if(!("Notification" in window) || Notification.permission!=="granted") return;
+  const t=todayKey(); if(r.lastShown===t) return;
+  const now=new Date(); const [hh,mm]=(r.time||"20:00").split(":").map(Number);
+  if(now.getHours()>hh || (now.getHours()===hh && now.getMinutes()>=mm)){
+    if(state.lastCheckIn!==t){
+      try{ new Notification("Ascend · Время отметиться",{body:"Не забудьте отметить сегодняшний день без срыва 💪",icon:ICON_URL}); }catch(e){}
+    }
+    r.lastShown=t; saveState();
+  }
+}
+function startReminderLoop(){ fireReminderIfDue(); setInterval(fireReminderIfDue,60000); } // проверка раз в минуту
+async function toggleReminders(){
+  if(!state.reminders.enabled){
+    const ok=await requestNotifyPermission();
+    state.reminders.enabled = !!ok;
+  }else{
+    state.reminders.enabled=false;
+    toast("🔕","Напоминания выключены");
+  }
+  saveState(); renderProfile();
+}
+
+/* =========================================================================
+   ПОДЕЛИТЬСЯ СТРИКОМ — генерация картинки через Canvas + Web Share API
+   ========================================================================= */
+function shareStreak(){
+  const days=getCleanDays();
+  const S=1080, cv=document.createElement("canvas"); cv.width=S; cv.height=S;
+  const ctx=cv.getContext("2d");
+  // Фон — тёмный градиент
+  const bg=ctx.createLinearGradient(0,0,S,S);
+  bg.addColorStop(0,"#0b0b15"); bg.addColorStop(.55,"#15122b"); bg.addColorStop(1,"#07070d");
+  ctx.fillStyle=bg; ctx.fillRect(0,0,S,S);
+  // Декоративные градиентные пятна
+  const blob=(x,y,r,c)=>{ const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,c); g.addColorStop(1,"rgba(0,0,0,0)"); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); };
+  blob(180,200,360,"rgba(124,92,255,.55)");
+  blob(900,880,420,"rgba(255,93,162,.45)");
+  ctx.textAlign="center";
+  // Логотип-треугольник
+  ctx.strokeStyle="#fff"; ctx.lineWidth=14; ctx.lineJoin="round";
+  ctx.beginPath(); ctx.moveTo(540,150); ctx.lineTo(470,290); ctx.lineTo(610,290); ctx.closePath(); ctx.stroke();
+  ctx.fillStyle="#fff"; ctx.font="700 44px Inter,Arial,sans-serif"; ctx.fillText("ASCEND",540,370);
+  // Большое число с градиентом
+  const tg=ctx.createLinearGradient(300,0,780,0);
+  tg.addColorStop(0,"#1fd1a3"); tg.addColorStop(1,"#34d399");
+  ctx.fillStyle=tg; ctx.font="900 300px Inter,Arial,sans-serif";
+  ctx.fillText(String(days),540,720);
+  // Подписи
+  ctx.fillStyle="#f4f5fb"; ctx.font="700 56px Inter,Arial,sans-serif";
+  ctx.fillText(plural(days,"ДЕНЬ","ДНЯ","ДНЕЙ")+" БЕЗ СРЫВА",540,820);
+  ctx.fillStyle="#b9bdd1"; ctx.font="500 38px Inter,Arial,sans-serif";
+  ctx.fillText(`Цель: ${state.goalDays} дней · Лучшая серия: ${state.bestStreak}`,540,900);
+  ctx.fillStyle="#7b8099"; ctx.font="500 32px Inter,Arial,sans-serif";
+  ctx.fillText("Дисциплина · Сила воли · Свобода",540,980);
+  // Экспорт картинки
+  cv.toBlob(b=>{
+    if(!b){ toast("⚠️","Не удалось","Ошибка генерации картинки"); return; }
+    const file=new File([b],`ascend-${days}-days.png`,{type:"image/png"});
+    // Web Share API (если поддерживает файлы) — иначе скачиваем PNG
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:"Мой прогресс в Ascend",text:`${days} ${plural(days,'день','дня','дней')} без срыва! 💪`}).catch(()=>{});
+    }else{
+      const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=file.name; a.click();
+      toast("🖼️","Картинка сохранена","Поделитесь своим прогрессом!");
+    }
+  },"image/png");
 }
 
 /* =========================================================================
@@ -1741,13 +2290,19 @@ function showError(msg){
   const e=$("#authError"); $("#authErrorText").textContent=msg;
   e.classList.remove("show"); void e.offsetWidth; e.classList.add("show");
 }
-function doLogin(pass){
-  if(pass===PASSWORD){
+async function doLogin(pass){
+  // Пустой ввод — сразу сообщаем об ошибке
+  if(pass.trim()===""){ showError("Введите пароль для входа"); $("#authPass").focus(); return; }
+  // Хэшируем введённый пароль и сравниваем с эталонным SHA-256-хэшем
+  let hash;
+  try{ hash = await sha256Hex(pass); }
+  catch(e){ showError("Браузер не поддерживает безопасный вход"); return; }
+  if(hash === PASSWORD_HASH){
     localStorage.setItem(AUTH_KEY,"ok");
     $("#authError").classList.remove("show");
     enterApp(true);
   }else{
-    showError(pass.trim()===""?"Введите пароль для входа":"Неверный пароль. Попробуйте ещё раз.");
+    showError("Неверный пароль. Попробуйте ещё раз.");
     $("#authPass").value=""; $("#authPass").focus();
   }
 }
@@ -1762,27 +2317,113 @@ function enterApp(firstLogin){
   $("#authScreen").style.display="none";
   $("#app").classList.add("active");
   loadState();
+  applyTheme();          // применяем сохранённую тему
   renderAll();
-  // приветственный экран при самом первом запуске
-  if(firstLogin && state.journal.length===0 && state.habits.length===0 && getCleanDays()===0 && !localStorage.getItem("ascend_welcomed")){
-    localStorage.setItem("ascend_welcomed","1");
-    setTimeout(showWelcome,400);
+  startReminderLoop();   // запускаем проверку напоминаний
+  // Онбординг при самом первом запуске (если ещё не пройден)
+  if(!state.onboarded){
+    setTimeout(startOnboarding,450);
   }
 }
-function showWelcome(){
-  const box=$("#modalBox");
-  box.innerHTML=`
-    <div class="reward-icon">🚀</div>
-    <h2>Добро пожаловать в Ascend</h2>
-    <p>Ваш личный путь к дисциплине и свободе начинается здесь.</p>
-    <div class="welcome-steps">
-      <div class="ws"><div class="wic">🎯</div><div><div class="wt">Отмечайте дни без срыва</div><div class="wd">Каждый день укрепляет вашу силу воли</div></div></div>
-      <div class="ws"><div class="wic">✅</div><div><div class="wt">Создавайте привычки</div><div class="wd">Маленькие шаги к большим переменам</div></div></div>
-      <div class="ws"><div class="wic">🏆</div><div><div class="wt">Получайте награды</div><div class="wd">Уровни, достижения, монеты и сундуки</div></div></div>
-    </div>
-    <button class="btn btn-primary btn-block" id="welcomeOk">Начать путь</button>`;
+
+/* =========================================================================
+   ОНБОРДИНГ — мастер из 4 шагов (показывается один раз)
+   ========================================================================= */
+let obState = null;
+function startOnboarding(){
+  // временное состояние мастера
+  obState = { step:1, addiction:null, habits:new Set(), goal:state.goalDays||90, remind:false, remindTime:state.reminders.time||"20:00" };
+  $("#modalBox").classList.add("ob-modal");
+  renderOnboardStep();
   $("#modalOverlay").classList.add("show");
-  $("#welcomeOk").onclick=()=>{ $("#modalOverlay").classList.remove("show"); fireConfetti(); };
+}
+function finishOnboarding(){
+  // Применяем выбор пользователя к основному состоянию
+  state.onboarded = true;
+  state.addictionType = obState.addiction;
+  state.goalDays = obState.goal;
+  const at = addictionById(obState.addiction);
+  state.goal = `${obState.goal} дней без «${at?at.name.toLowerCase():'срывов'}»`;
+  // создаём выбранные привычки из шаблонов
+  obState.habits.forEach(i=>{
+    const tpl = HABIT_TEMPLATES[i];
+    if(tpl) state.habits.push({ id:uid(), name:tpl.name, emoji:tpl.emoji, category:tpl.cat, createdAt:todayKey(), history:[], streak:0 });
+  });
+  // напоминания
+  state.reminders.enabled = obState.remind;
+  state.reminders.time = obState.remindTime;
+  if(obState.remind) requestNotifyPermission();
+  $("#modalBox").classList.remove("ob-modal");
+  $("#modalOverlay").classList.remove("show");
+  checkBadges();
+  saveState(); renderAll();
+  fireConfetti();
+  toast("🚀","Всё готово!","Ваш путь к дисциплине начинается");
+}
+function renderOnboardStep(){
+  const s = obState, box = $("#modalBox");
+  const total = 4, pct = s.step/total*100;
+  let body = "";
+  if(s.step===1){
+    // Шаг 1 — тип зависимости
+    body = `
+      <div class="ob-head"><span class="ob-emoji">🎯</span><h2>С чем будем работать?</h2></div>
+      <div class="ob-sub">Выберите зависимость, от которой хотите освободиться</div>
+      <div class="ob-options">
+        ${ADDICTION_TYPES.map(a=>`<button class="ob-opt ${s.addiction===a.id?'sel':''}" data-add="${a.id}"><span class="oe">${a.emoji}</span>${a.name}</button>`).join("")}
+      </div>`;
+  } else if(s.step===2){
+    // Шаг 2 — выбор привычек из шаблонов
+    body = `
+      <div class="ob-head"><span class="ob-emoji">✅</span><h2>Добавим полезные привычки</h2></div>
+      <div class="ob-sub">Отметьте те, что хотите развивать (можно несколько)</div>
+      <div class="ob-templates">
+        ${HABIT_TEMPLATES.map((t,i)=>`<button class="ob-tpl ${s.habits.has(i)?'sel':''}" data-tpl="${i}"><span style="font-size:20px">${t.emoji}</span>${t.name}<span class="ot-check">✓</span></button>`).join("")}
+      </div>`;
+  } else if(s.step===3){
+    // Шаг 3 — цель в днях
+    body = `
+      <div class="ob-head"><span class="ob-emoji">🏁</span><h2>Поставьте цель</h2></div>
+      <div class="ob-sub">Сколько дней без срыва вы хотите достичь?</div>
+      <div class="ob-goal-grid">
+        ${[30,60,90,365].map(g=>`<button class="ob-goal ${s.goal===g?'sel':''}" data-goal="${g}"><div class="og-num">${g}</div><div class="og-lab">${g===365?'целый год':'дней'}</div></button>`).join("")}
+      </div>`;
+  } else {
+    // Шаг 4 — напоминания
+    body = `
+      <div class="ob-head"><span class="ob-emoji">🔔</span><h2>Напоминания</h2></div>
+      <div class="ob-sub">Будем мягко напоминать отметить день, чтобы не сбиться</div>
+      <div class="ob-options" style="grid-template-columns:1fr">
+        <button class="ob-opt ${s.remind?'sel':''}" data-remind="1"><span class="oe">✅</span>Включить ежедневные напоминания</button>
+        <button class="ob-opt ${!s.remind?'sel':''}" data-remind="0"><span class="oe">🌙</span>Не сейчас</button>
+      </div>
+      <div style="margin-top:14px;${s.remind?'':'opacity:.4;pointer-events:none'}" id="obTimeWrap">
+        <label style="font-size:12.5px;color:var(--text-mut);font-weight:700">Время напоминания</label>
+        <input type="time" class="inp" id="obTime" value="${s.remindTime}" style="margin-top:8px;max-width:160px">
+      </div>`;
+  }
+  box.innerHTML = `
+    <div class="ob-progress"><i style="width:${pct}%"></i></div>
+    <div class="ob-step-count">Шаг ${s.step} из ${total}</div>
+    ${body}
+    <div class="ob-actions">
+      ${s.step>1?`<button class="btn btn-ghost" id="obBack" style="flex:0 0 auto">Назад</button>`:""}
+      <button class="btn btn-primary btn-block" id="obNext">${s.step===total?'Завершить':'Далее'}</button>
+    </div>`;
+  // --- Привязка обработчиков текущего шага ---
+  if(s.step===1) $$(".ob-opt",box).forEach(b=>b.onclick=()=>{ s.addiction=b.dataset.add; renderOnboardStep(); });
+  if(s.step===2) $$(".ob-tpl",box).forEach(b=>b.onclick=()=>{ const i=+b.dataset.tpl; s.habits.has(i)?s.habits.delete(i):s.habits.add(i); renderOnboardStep(); });
+  if(s.step===3) $$(".ob-goal",box).forEach(b=>b.onclick=()=>{ s.goal=+b.dataset.goal; renderOnboardStep(); });
+  if(s.step===4){
+    $$("[data-remind]",box).forEach(b=>b.onclick=()=>{ s.remind=b.dataset.remind==="1"; renderOnboardStep(); });
+    const ti=$("#obTime",box); if(ti) ti.onchange=()=>{ s.remindTime=ti.value; };
+  }
+  const back=$("#obBack",box); if(back) back.onclick=()=>{ s.step--; renderOnboardStep(); };
+  $("#obNext",box).onclick=()=>{
+    if(s.step===1 && !s.addiction){ toast("👆","Выберите вариант","Укажите тип зависимости"); return; }
+    if(s.step<4){ s.step++; renderOnboardStep(); }
+    else finishOnboarding();
+  };
 }
 
 /* =========================================================================
@@ -1798,10 +2439,19 @@ function bindEvents(){
   $("#logoutBtn").addEventListener("click",logout);
   $("#logoutBtnMobile").addEventListener("click",logout);
 
-  // Навигация (делегирование)
+  // Навигация (делегирование) + CTA пустых состояний
   document.addEventListener("click",e=>{
     const nav=e.target.closest(".nav-item");
-    if(nav){ switchView(nav.dataset.view); }
+    if(nav){ switchView(nav.dataset.view); return; }
+    // CTA из пустых состояний (создаются динамически)
+    if(e.target.closest("#emptyAddJournal")){ $("#journalText").focus(); }
+    if(e.target.closest("#emptyGoTrack")){ switchView("habits"); }
+  });
+  // Доступность: активация пунктов навигации с клавиатуры (Enter / Пробел)
+  document.addEventListener("keydown",e=>{
+    if((e.key==="Enter"||e.key===" ") && e.target.classList && e.target.classList.contains("nav-item")){
+      e.preventDefault(); switchView(e.target.dataset.view);
+    }
   });
   $("#profileQuick").addEventListener("click",()=>switchView("profile"));
 
@@ -1820,8 +2470,11 @@ function bindEvents(){
   $("#view-habits").addEventListener("click",e=>{
     const em=e.target.closest("[data-emoji]");
     if(em){ pickedEmoji=em.dataset.emoji; renderHabits(); return; }
+    const cat=e.target.closest("[data-cat]");
+    if(cat){ pickedCat=cat.dataset.cat; renderHabits(); return; }   // выбор категории
     const tg=e.target.closest("[data-toggle]"); if(tg){ toggleHabit(tg.dataset.toggle); return; }
     const del=e.target.closest("[data-del]"); if(del){ deleteHabit(del.dataset.del); return; }
+    if(e.target.closest("#emptyAddHabit")){ $("#habitInput").focus(); }  // CTA пустого состояния
   });
 
   // Дневник
@@ -1866,6 +2519,30 @@ function bindEvents(){
   $("#restoreBtn").addEventListener("click",restoreData);
   $("#resetBtn").addEventListener("click",resetData);
 
+  // Поделиться стриком
+  $("#shareStreakBtn").addEventListener("click",shareStreak);
+
+  // Переключатель темы
+  $("#themeSeg").addEventListener("click",e=>{
+    const b=e.target.closest("[data-theme-val]"); if(b) setTheme(b.dataset.themeVal);
+  });
+
+  // Напоминания
+  $("#remindToggleBtn").addEventListener("click",toggleReminders);
+  $("#remindTime").addEventListener("change",e=>{
+    state.reminders.time=e.target.value||"20:00"; state.reminders.lastShown=null; saveState();
+    toast("⏰","Время сохранено",`Напоминание в ${state.reminders.time}`);
+  });
+
+  // Установка приложения + повторный онбординг
+  $("#installBtn").addEventListener("click",installApp);
+  $("#redoOnboardBtn").addEventListener("click",startOnboarding);
+
+  // Реакция на смену системной темы (для режима «Система»)
+  if(window.matchMedia){
+    matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{ if(state&&state.theme==="system") applyTheme(); });
+  }
+
   // Закрытие модалки по клику на фон
   $("#modalOverlay").addEventListener("click",e=>{ if(e.target===$("#modalOverlay")) $("#modalOverlay").classList.remove("show"); });
 }
@@ -1876,6 +2553,7 @@ function bindEvents(){
 function init(){
   buildNav();
   bindEvents();
+  setupPWA();            // подключаем манифест и Service Worker
   if(isAuthed()){ enterApp(false); }
   else { $("#authScreen").style.display="flex"; setTimeout(()=>$("#authPass").focus(),300); }
 }
